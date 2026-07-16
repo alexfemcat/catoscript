@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm") version "2.2.20"
     `java-library`
     `maven-publish`
+    id("application")
 }
 
 group = "com.catoscript"
@@ -23,6 +24,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+application {
+    mainClass.set("com.catoscript.cli.RunScriptKt")
 }
 
 publishing {

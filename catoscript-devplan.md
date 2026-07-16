@@ -270,11 +270,13 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 ### Phase C · Introduce the host SPI
 
 - [x] Add `com.catoscript.runtime.CatoHost` interface and `NullHost` (per §2)
-- [ ] Refactor `Interpreter` constructor to take `host: CatoHost`
-- [ ] Route `meow`, `chirp`, `purr`, `hiss`, `vibrato`, `sample`, `scurry`, `groom` through `host.*`
+- [x] Refactor `Interpreter` constructor to take `host: CatoHost`
+- [ ] Route `meow`, `chirp`, `purr`, `hiss`, `vibrato`, `sample`, `scurry`, `groom` through `host.*` *(this slice routes `meow` only; the audio commands and screen commands don't exist as language primitives yet — they need to be written alongside the AST. Sniff also needs a host method for `env` once §5.3 lands)*
 - [ ] Route `sniff_env` through `host.envLookup`
-- [x] Add `NullHost` to test fixtures; tests stay green
-- [ ] Bump to `0.3.0-LOCAL`, publish
+- [x] Add `NullHost` to test fixtures; tests stay green *(tests use a `RecordingHost` test fixture that captures `print` calls; `NullHost` is still the no-op default)*
+- [x] Bump to `0.3.0-LOCAL`, publish
+
+> Phase C is partially landed as part of the minimum viable loop slice. The interpreter takes CatoHost, and `meow` routes through `host.print`. The other CatoHost methods (audio, cursor, env, CLI, FS) are declared but unused — they'll light up as the corresponding language commands ship. A `ConsoleHost` was added for the CLI smoke-test path; it's a thin stdout implementation that the future `tools/repl/` CLI will replace.
 
 > CatoHost + NullHost shipped early as part of Phase A (see note there). The remaining Phase C checkboxes depend on Phase B landing first — there's no Interpreter to refactor until the engine moves over.
 

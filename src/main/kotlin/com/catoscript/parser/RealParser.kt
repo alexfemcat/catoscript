@@ -89,6 +89,9 @@ object Parser {
     private fun parseExpr(text: String, pos: SourcePos): Expr {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) throw ParseError("expected an expression", pos)
+        if (trimmed.contains(" < ") || trimmed.contains(" == ")) {
+            return parseCompare(trimmed, pos)
+        }
         return when {
             trimmed.startsWith("\"") -> parseString(trimmed, pos)
             trimmed.startsWith("$") -> Expr.VarRef(trimmed.substring(1), pos)
