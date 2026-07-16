@@ -250,20 +250,22 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Create `catoscript/` repo with empty Gradle Kotlin/JVM project
 - [x] Add `AGENTS.md` (language-first), `README.md` (30-second quickstart)
 - [x] Configure `publishToMavenLocal`, version `0.1.0-LOCAL`
-- [ ] Add CI: `./gradlew build` + `./gradlew test` on push
+- [ ] ~~Add CI: `./gradlew build` + `./gradlew test` on push~~ *(skipped — single contributor, local `./gradlew test` before push is enough; revisit if outside contributors land)*
 - [x] First publish: `com.catoscript:catoscript:0.1.0-LOCAL` (empty library, package only)
 
 > Phase A shipped the CatoHost SPI alongside the empty library, which is technically Phase C work. The reasoning: an empty jar is a hollow publish, and NullHost with its tests is the smallest possible proof that the SPI is real. Phase C's checkbox for "add CatoHost and NullHost" can be checked off when KP actually routes commands through it (the dependency direction the other way around).
 
 ### Phase B · Move the engine verbatim (behavior-preserving)
 
-- [ ] Move `lexer/` from `:cato-kotlin` to `catoscript`, package rename `com.kp.cato.lexer` → `com.catoscript.lexer`
-- [ ] Move `parser/` (line-splitter version) → `com.catoscript.parser`
-- [ ] Move `ast/` (sealed Expr/Stmt) → `com.catoscript.ast`
-- [ ] Move `interpreter/` (loop, ScriptContext, IP) → `com.catoscript.interpreter`
-- [ ] Move `commands/` (meow, set, sniff, jump, …) → `com.catoscript.commands`
-- [ ] Move all tests with their files; ensure `./gradlew :catoscript:test` is green
-- [ ] Bump version to `0.2.0-LOCAL`, publish
+- [x] Move `lexer/` from `:cato-kotlin` to `catoscript`, package rename `com.kp.cato.lexer` → `com.catoscript.lexer`
+- [x] Move `parser/` (line-splitter version) → `com.catoscript.parser`
+- [ ] Move `ast/` (sealed Expr/Stmt) → `com.catoscript.ast` *(no source exists in KP yet — sealed Expr/Stmt land when the language commands move, see Phase B note)*
+- [x] Move `interpreter/` (loop, ScriptContext, IP) → `com.catoscript.interpreter` *(ScriptContext, ThreadHandle, LastResult moved; interpreter loop does not exist in KP yet — lands as new work when language commands ship)*
+- [ ] Move `commands/` (meow, set, sniff, jump, …) → `com.catoscript.commands` *(KP's `commands/` package is the 67-command canned-tools shell registry, which stays in KP per §4 — language commands like `meow`/`set`/`sniff`/`jump` are not implemented in KP and need to be written fresh here)*
+- [x] Move all tests with their files; ensure `./gradlew test` is green *(19 tests across 6 classes: NullHostTest, TokenTest, ParserTest, ScriptContextTest, ThreadHandleTest, LastResultTest)*
+- [x] Bump version to `0.2.0-LOCAL`, publish
+
+> **Phase B scope correction.** The devplan listed five subpackages to move but only three had source in KP. What moved: `Token.kt` (lexer), `Parser.kt` (parser), `ScriptContext.kt` + `ThreadHandle.kt` + `LastResult.kt` (interpreter data carriers). What didn't exist in KP and needs to be written fresh: the interpreter loop (it lives where the language commands execute), the sealed `Expr`/`Stmt` AST (replacing the flat `Token` shape), and the language command implementations themselves (`meow`, `set`, `sniff`, `jump`, etc.). Phase C work follows from this — wiring CatoHost into the loop when the loop lands.
 
 ### Phase C · Introduce the host SPI
 
