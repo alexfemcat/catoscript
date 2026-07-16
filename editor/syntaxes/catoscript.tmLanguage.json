@@ -1,0 +1,84 @@
+{
+  "name": "catoscript",
+  "scopeName": "source.catoscript",
+  "fileTypes": ["cato"],
+  "firstLineMatch": "",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#labels" },
+    { "include": "#variables" },
+    { "include": "#numbers" },
+    { "include": "#keywords" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.catoscript",
+      "match": "#.*"
+    },
+    "strings": {
+      "name": "string.quoted.double.catoscript",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "variable.interpolation.catoscript",
+          "match": "\\$[A-Za-z_][A-Za-z0-9_]*"
+        },
+        {
+          "name": "constant.character.escape.catoscript",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "labels": {
+      "name": "entity.name.label.catoscript",
+      "match": "^\\s*:[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "variables": {
+      "name": "variable.other.catoscript",
+      "match": "\\$[A-Za-z_][A-Za-z0-9_]*"
+    },
+    "numbers": {
+      "name": "constant.numeric.catoscript",
+      "match": "\\b[0-9]+\\b"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.catoscript",
+          "match": "\\b(?:jump|pounce|purr_at|hiss_at|reflex|breed|end_breed|instinct)\\b"
+        },
+        {
+          "name": "keyword.visual.catoscript",
+          "match": "\\b(?:glow|blink|canvas_mode|draw_box|button|gauge|input_field|trail|glitch_box|layer_depth|window|view_port|skin|focus_win|stencil|tilt|magnify|window|skin|focus_win)\\b"
+        },
+        {
+          "name": "keyword.system.catoscript",
+          "match": "\\b(?:include|coat|sniff_env|nine_lives|on_idle|def_asset|end_asset|on_hover|on_pet_click|ignore|focus)\\b"
+        },
+        {
+          "name": "keyword.neural.catoscript",
+          "match": "\\b(?:synapse|train|think|memory_echo|mood_swing)\\b"
+        },
+        {
+          "name": "keyword.audio.catoscript",
+          "match": "\\b(?:purr|hiss|tempo|chirp|rumble|pat|knock|knead|vibrato|sample)\\b"
+        },
+        {
+          "name": "keyword.action.catoscript",
+          "match": "\\b(?:scratch|swat|bat|crouch|spring|leap|zoomies|groom|scurry|tumble|nap|stalk|scare|unravel|shred|fetch_yarn|overclock|battery|partition|loaf|knock_off_table|detach|minimize|overclock_hardware|jam_comms|hijack_camera|spawn|whisper|broadcast|knit|tag|benchmark|prowl|hiss_at_ip|weight|pounce_force|friction|snag|fill_box|fur_coat|twitch|mirror|listen|split|hush|synth|envelope|spawn_pet|pet_move|pet_stat|feed|scent|signal|pixel|glitch|static|litter|focus)\\b"
+        },
+        {
+          "name": "keyword.meow.catoscript",
+          "match": "\\bmeow\\b"
+        },
+        {
+          "name": "keyword.other.catoscript",
+          "match": "\\b(?:set|sniff|bury|dig|sync)\\b"
+        }
+      ]
+    }
+  },
+  "uuid": ""
+}

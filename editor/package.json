@@ -1,0 +1,31 @@
+{
+  "name": "catoscript",
+  "displayName": "catoscript",
+  "description": "Syntax highlighting for catoscript .cato files, mirroring the Kernel Panic CatoDE palette",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.70.0" },
+  "contributes": {
+    "languages": [
+      {
+        "id": "catoscript",
+        "aliases": ["catoscript", "CatoScript"],
+        "filenamePatterns": ["*.cato"],
+        "configuration": "./catoscript.language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "catoscript",
+        "scopeName": "source.catoscript",
+        "path": "./syntaxes/catoscript.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "catoscript (Kernel Panic palette)",
+        "uiTheme": "vs-dark",
+        "path": "./themes/catoscript-color-theme.json"
+      }
+    ]
+  }
+}
