@@ -247,11 +247,13 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 ### Phase A · Stand up the new repo (no KP changes yet)
 
-- [ ] Create `catoscript/` repo with empty Gradle Kotlin/JVM project
-- [ ] Add `AGENTS.md` (language-first), `README.md` (30-second quickstart)
-- [ ] Configure `publishToMavenLocal`, version `0.1.0-LOCAL`
+- [x] Create `catoscript/` repo with empty Gradle Kotlin/JVM project
+- [x] Add `AGENTS.md` (language-first), `README.md` (30-second quickstart)
+- [x] Configure `publishToMavenLocal`, version `0.1.0-LOCAL`
 - [ ] Add CI: `./gradlew build` + `./gradlew test` on push
-- [ ] First publish: `com.catoscript:catoscript:0.1.0-LOCAL` (empty library, package only)
+- [x] First publish: `com.catoscript:catoscript:0.1.0-LOCAL` (empty library, package only)
+
+> Phase A shipped the CatoHost SPI alongside the empty library, which is technically Phase C work. The reasoning: an empty jar is a hollow publish, and NullHost with its tests is the smallest possible proof that the SPI is real. Phase C's checkbox for "add CatoHost and NullHost" can be checked off when KP actually routes commands through it (the dependency direction the other way around).
 
 ### Phase B · Move the engine verbatim (behavior-preserving)
 
@@ -265,12 +267,14 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 ### Phase C · Introduce the host SPI
 
-- [ ] Add `com.catoscript.runtime.CatoHost` interface and `NullHost` (per §2)
+- [x] Add `com.catoscript.runtime.CatoHost` interface and `NullHost` (per §2)
 - [ ] Refactor `Interpreter` constructor to take `host: CatoHost`
 - [ ] Route `meow`, `chirp`, `purr`, `hiss`, `vibrato`, `sample`, `scurry`, `groom` through `host.*`
 - [ ] Route `sniff_env` through `host.envLookup`
-- [ ] Add `NullHost` to test fixtures; tests stay green
+- [x] Add `NullHost` to test fixtures; tests stay green
 - [ ] Bump to `0.3.0-LOCAL`, publish
+
+> CatoHost + NullHost shipped early as part of Phase A (see note there). The remaining Phase C checkboxes depend on Phase B landing first — there's no Interpreter to refactor until the engine moves over.
 
 ### Phase D · KP consumes the library
 
