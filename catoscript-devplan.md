@@ -315,6 +315,19 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Bump to `0.6.0-LOCAL`, publish
 - [ ] (KP side) CatoDE editor calls the library analyzer; debug overlay (F2) uses the library stepper
 
+### Phase I · Editor support (VS Code now, IntelliJ later)
+
+- [x] Stand up `editor/` as a standalone VS Code extension module (TextMate grammar + theme + language config + manifest)
+- [x] Mirror the Kernel Panic CatoDE palette (cyan / pink / yellow / purple / green / orange hex values from `cato/components/Editor.tsx`)
+- [x] Cover the full KP keyword vocabulary (`cato/data/catoKeywords.ts`) so unimplemented commands still light up as a forward-looking spec
+- [x] Document install: `cd editor && npx --yes @vscode/vsce package && code --install-extension catoscript-*.vsix`
+- [x] Add `*.vsix` to `.gitignore` (build artifact, regenerated from sources)
+- [ ] Decide whether IntelliJ support is worth the SDK lift, or whether VS Code stays the only editor
+- [ ] If yes: ship `editor-intellij/` as a separate Gradle module with the IntelliJ Platform Plugin (see `docs/intellij-plugin-plan.md` for the plan)
+- [ ] If no: document VS Code as the supported editor in README
+
+> Phase I shipped VS Code support early (alongside Phase C) because the language is now usable end to end and an editor is the natural next tool. The IntelliJ piece is deferred until Tiers 9-11 ship and there's enough catoscript code in the wild that an IntelliJ user might actually want to edit it. The plan lives in `docs/intellij-plugin-plan.md` (gitignored personal notes) so the work doesn't get lost.
+
 ### Phase H · Real publishing (after API stabilizes)
 
 - [ ] Pin `catoscript` version in KP `gradle.properties` (`catoscript.version=0.6.0`)
