@@ -265,20 +265,23 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Move all tests with their files; ensure `./gradlew test` is green *(19 tests across 6 classes: NullHostTest, TokenTest, ParserTest, ScriptContextTest, ThreadHandleTest, LastResultTest)*
 - [x] Bump version to `0.2.0-LOCAL`, publish
 
-> **Phase B scope correction.** The devplan listed five subpackages to move but only three had source in KP. What moved: `Token.kt` (lexer), `Parser.kt` (parser), `ScriptContext.kt` + `ThreadHandle.kt` + `LastResult.kt` (interpreter data carriers). What didn't exist in KP and needs to be written fresh: the interpreter loop (it lives where the language commands execute), the sealed `Expr`/`Stmt` AST (replacing the flat `Token` shape), and the language command implementations themselves (`meow`, `set`, `sniff`, `jump`, etc.). Phase C work follows from this — wiring CatoHost into the loop when the loop lands.
+> **Phase B scope correction.** The devplan listed five subpackages to move but only three had source in KP. What moved: `Token.kt` (lexer), `Parser.kt` (parser), `ScriptContext.kt` + `ThreadHandle.kt` + `LastResult.kt` (interpreter data carriers). What didn't exist in KP and needed to be written fresh: the interpreter loop (it lives where the language commands execute), the sealed `Expr`/`Stmt` AST (replacing the flat `Token` shape), and the language command implementations themselves (`meow`, `set`, `sniff`, `jump`, etc.).
+
+> **That fresh work landed as Phase B.5** (commit `44cbdb4`) before Phase D, so the parser, AST, and interpreter loop exist without waiting for KP-side consumer work. The old flat `Token.kt` and line-splitter `Parser.kt` were deleted in the same commit; the new `RealParser.kt` is the only parser. Phase C's `meow`→`host.print` routing landed in B.5 too. What's still open in Phase C: the audio (`chirp`/`purr`/`hiss`/`vibrato`/`sample`), screen (`scurry`/`groom`), and env (`sniff_env` / future `env`) commands — they need both parser branches and interpreter branches written, with the corresponding `CatoHost` methods lit up.
 
 ### Phase C · Introduce the host SPI
 
 - [x] Add `com.catoscript.runtime.CatoHost` interface and `NullHost` (per §2)
 - [x] Refactor `Interpreter` constructor to take `host: CatoHost`
-- [ ] Route `meow`, `chirp`, `purr`, `hiss`, `vibrato`, `sample`, `scurry`, `groom` through `host.*` *(this slice routes `meow` only; the audio commands and screen commands don't exist as language primitives yet — they need to be written alongside the AST. Sniff also needs a host method for `env` once §5.3 lands)*
-- [ ] Route `sniff_env` through `host.envLookup`
+- [x] Route `meow` through `host.print` *(shipped in Phase B.5, commit `44cbdb4`)*
+- [ ] Route `chirp`, `purr`, `hiss`, `vibrato`, `sample`, `scurry`, `groom` through `host.*` *(these language commands don't exist as primitives yet — they need to be written alongside the AST. The `CatoHost` methods are declared and `NullHost` provides defaults.)*
+- [ ] Route `sniff_env` (or its §5.3 successor `env`) through `host.envLookup`
 - [x] Add `NullHost` to test fixtures; tests stay green *(tests use a `RecordingHost` test fixture that captures `print` calls; `NullHost` is still the no-op default)*
 - [x] Bump to `0.3.0-LOCAL`, publish
 
 > Phase C is partially landed as part of the minimum viable loop slice. The interpreter takes CatoHost, and `meow` routes through `host.print`. The other CatoHost methods (audio, cursor, env, CLI, FS) are declared but unused — they'll light up as the corresponding language commands ship. A `ConsoleHost` was added for the CLI smoke-test path; it's a thin stdout implementation that the future `tools/repl/` CLI will replace.
 
-> CatoHost + NullHost shipped early as part of Phase A (see note there). The remaining Phase C checkboxes depend on Phase B landing first — there's no Interpreter to refactor until the engine moves over.
+> CatoHost + NullHost shipped early as part of Phase A (see note there). The remaining Phase C checkboxes depend on Phase B landing first — there's no Interpreter to refactor until the engine moves over. `meow` routing landed as part of Phase B.5 alongside the interpreter loop.
 
 ### Phase D · KP consumes the library
 
@@ -292,11 +295,13 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 ### Phase E · Real parser + AST (the fun begins)
 
-- [ ] Add recursive-descent parser to `com.catoscript.parser`
-- [ ] Define `SourcePos(line, column)` and thread it through `Expr` / `Stmt`
-- [ ] All existing tests stay green; new tests cover error positions
-- [ ] Bump to `0.4.0-LOCAL`, publish
+- [x] Add recursive-descent parser to `com.catoscript.parser` *(shipped as `RealParser.kt` in Phase B.5, commit `44cbdb4`)*
+- [x] Define `SourcePos(line, column)` and thread it through `Expr` / `Stmt` *(shipped: every `Stmt` and `Expr` carries `pos: SourcePos`; `ParseError` carries one too)*
+- [x] All existing tests stay green; new tests cover error positions *(RealParserTest, InterpreterTest shipped alongside the parser; full suite `./gradlew test` is green)*
+- [ ] Bump to `0.4.0-LOCAL`, publish *(the parser landed under the existing `0.3.0-LOCAL` bump; Phase E's own bump happens when its KP-side click-to-line work lands)*
 - [ ] (KP side) CatoDE editor gains click-to-line on error toasts
+
+> **Phase E actually landed as Phase B.5.** Commit `44cbdb4` ("Phase B.5: AST, recursive-descent parser, interpreter loop, host wiring") shipped the recursive-descent parser, the sealed `Expr`/`Stmt`/`CompareOp`/`StrPart` AST, `SourcePos` threaded through every node, and the interpreter loop that walks them — all the §5.1 / Phase E work. The phase-name drift ("B.5" vs "E") is documented because the devplan said E was after D, and D is KP-side work; running B.5 before D let the parser land without a downstream consumer. The Phase E bump to `0.4.0-LOCAL` is parked until the KP-side click-to-line work makes the error positions user-visible.
 
 ### Phase F · Standalone CLI REPL ships
 
