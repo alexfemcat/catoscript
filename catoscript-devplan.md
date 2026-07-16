@@ -92,7 +92,13 @@ catoscript/
     └── repl/                       # CLI REPL app (no Compose; uses NullHost or a TTY host)
 ```
 
-**Publishing:** `./gradlew publishToMavenLocal` → `com.catoscript:catoscript:0.1.0-LOCAL`. KP pulls via `mavenLocal()` in `settings.gradle.kts`.
+**Publishing:** `./gradlew publishToMavenLocal` → `com.catoscript:catoscript:<version>` (the fat jar; KP pulls via `mavenLocal()` in `settings.gradle.kts`).
+
+**Distribution:** `./gradlew shadowDistZip` → `build/distributions/catoscript-shadow-<version>.zip`. The zip contains three files: `bin/cato` (bash launcher), `bin/cato.bat` (Windows launcher), and `lib/catoscript-<version>.jar` (the same fat jar). End users extract the zip, add `bin/` to `PATH`, run `cato run <file.cato>`. The launchers are the shadow plugin's auto-generated `CreateStartScripts` output, renamed from `catoscript` to `cato`. The application plugin's main distribution is disabled because it expands every runtime dep into its own lib/*.jar — wrong shape for a fat-jar install.
+
+**Direct jar:** `./gradlew shadowJar` → `build/libs/catoscript-<version>.jar` (2.5 MB fat jar with `Main-Class: com.catoscript.cli.RunScriptKt` in the manifest). Runs via `java -jar build/libs/catoscript-<version>.jar <file.cato>`. No classpath needed.
+
+The application plugin's `jar` and `startScripts` tasks are disabled so the regular library jar (KP-consumable, no `Main-Class`) and its classpath-launcher scripts don't clobber the shadow jar's output at `build/libs/`. The `main` distribution's tasks (`distZip`, `distTar`, `installDist`, `assembleDist`) are disabled for the same reason.
 
 ---
 
@@ -307,9 +313,11 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 - [ ] Create `tools/repl/` Gradle subproject (kotlin("jvm") application)
 - [ ] Implement `ReplHost : CatoHost` using ANSI escape codes for cursor/clear
-- [ ] Ship `cato` launcher script
-- [ ] README documents the 30-second quickstart
+- [x] Ship `cato` launcher script *(shipped via the shadow distribution's `startShadowScripts` task with `applicationName = "cato"`. Two launchers: `bin/cato` (bash, Mark-as-Executable in install dir) and `bin/cato.bat` (Windows). Both auto-discover the fat jar at `../lib/catoscript-<version>.jar`. See §3 "Distribution" note.)*
+- [x] README documents the 30-second quickstart *(README §2 has three paths: install via the zip, run via `java -jar`, and the dev launcher)*
 - [ ] Bump to `0.5.0-LOCAL`, publish
+
+> **Phase F partially shipped ahead of REPL.** The launcher scripts and the install distribution (`shadowDistZip`) shipped in commit `6c3ecf4` because the fat jar was the prerequisite for any user-facing install path. The `tools/repl/` subproject and the ANSI `ReplHost` are still pending — they need Phase G's analyzer / formatter / stepper to land first for `:tutorial` and `:step` to be meaningful. The Phase F bump to `0.5.0-LOCAL` happens when the REPL itself ships.
 
 ### Phase G · Move the analyzer + formatter + stepper
 
