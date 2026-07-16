@@ -110,7 +110,11 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                 val r = eval(expr.right, variables)
                 when (expr.op) {
                     com.catoscript.ast.CompareOp.LT -> compareLess(l, r)
+                    com.catoscript.ast.CompareOp.LTE -> Value.Bool(compareLess(l, r).b || compareEq(l, r).b)
                     com.catoscript.ast.CompareOp.EQ -> compareEq(l, r)
+                    com.catoscript.ast.CompareOp.NEQ -> Value.Bool(!compareEq(l, r).b)
+                    com.catoscript.ast.CompareOp.GTE -> Value.Bool(compareLess(r, l).b || compareEq(l, r).b)
+                    com.catoscript.ast.CompareOp.GT -> compareLess(r, l)
                 }
             }
         }

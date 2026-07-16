@@ -103,4 +103,68 @@ class InterpreterTest {
         val err = assertIs<InterpreterResult.RuntimeError>(result)
         assertTrue(err.message.contains("nope"), "got: ${err.message}")
     }
+    @Test
+    fun `runs Tier 3 with sniff using greater-than`() {
+        val source = """
+        set ${'$'}hp 5
+        sniff ${'$'}hp > 1
+        purr_at :DEAD
+        meow "still alive"
+        jump :END
+        :DEAD
+        meow "game over"
+        :END
+    """.trimIndent()
+        val host = RecordingHost()
+        Interpreter(host).run(Parser.parse(source))
+        assertEquals(listOf("game over"), host.printed)
+    }
+    @Test
+    fun `sniff with greater-than-or-equal picks purr_at on exact equality`() {
+        val source = """
+        set ${'$'}hp 5
+        sniff ${'$'}hp >= 5
+        purr_at :DEAD
+        meow "still alive"
+        jump :END
+        :DEAD
+        meow "dead"
+        :END
+    """.trimIndent()
+        val host = RecordingHost()
+        Interpreter(host).run(Parser.parse(source))
+        assertEquals(listOf("dead"), host.printed)
+    }
+    @Test
+    fun `sniff with less-than-or-equal picks purr_at on exact equality`() {
+        val source = """
+        set ${'$'}hp 5
+        sniff ${'$'}hp <= 5
+        purr_at :DEAD
+        meow "still alive"
+        jump :END
+        :DEAD
+        meow "dead"
+        :END
+    """.trimIndent()
+        val host = RecordingHost()
+        Interpreter(host).run(Parser.parse(source))
+        assertEquals(listOf("dead"), host.printed)
+    }
+    @Test
+    fun `sniff with not-equal picks purr_at when values differ`() {
+        val source = """
+        set ${'$'}hp 5
+        sniff ${'$'}hp != 1
+        purr_at :OTHER
+        meow "same"
+        jump :END
+        :OTHER
+        meow "different"
+        :END
+    """.trimIndent()
+        val host = RecordingHost()
+        Interpreter(host).run(Parser.parse(source))
+        assertEquals(listOf("different"), host.printed)
+    }
 }

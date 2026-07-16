@@ -2,6 +2,7 @@ import org.gradle.api.tasks.application.CreateStartScripts
 
 plugins {
     kotlin("jvm") version "2.2.20"
+    kotlin("plugin.serialization") version "2.2.20"
     `java-library`
     `maven-publish`
     id("application")

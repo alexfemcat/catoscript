@@ -79,4 +79,37 @@ class RealParserTest {
             Parser.parse("frobnicate 1 2")
         }
     }
+    @Test
+    fun `sniff with greater-than comparison`() {
+        val program = Parser.parse("sniff \$hp > 1")
+        val stmt = assertIs<Stmt.Sniff>(program.stmts[0])
+        val cmp = assertIs<Expr.Compare>(stmt.cond)
+        assertEquals(CompareOp.GT, cmp.op)
+        val left = assertIs<Expr.VarRef>(cmp.left)
+        assertEquals("hp", left.name)
+        val right = assertIs<Expr.Num>(cmp.right)
+        assertEquals(1L, right.value)
+    }
+    @Test
+    fun `sniff with greater-than-or-equal comparison`() {
+        val program = Parser.parse("sniff \$hp >= 1")
+        val stmt = assertIs<Stmt.Sniff>(program.stmts[0])
+        val cmp = assertIs<Expr.Compare>(stmt.cond)
+        assertEquals(CompareOp.GTE, cmp.op)
+    }
+    @Test
+    fun `sniff with less-than-or-equal comparison`() {
+        val program = Parser.parse("sniff \$hp <= 1")
+        val stmt = assertIs<Stmt.Sniff>(program.stmts[0])
+        val cmp = assertIs<Expr.Compare>(stmt.cond)
+        assertEquals(CompareOp.LTE, cmp.op)
+    }
+    @Test
+    fun `sniff with not-equal comparison`() {
+        val program = Parser.parse("sniff \$hp != 1")
+        val stmt = assertIs<Stmt.Sniff>(program.stmts[0])
+        val cmp = assertIs<Expr.Compare>(stmt.cond)
+        assertEquals(CompareOp.NEQ, cmp.op)
+    }
+
 }

@@ -275,6 +275,24 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > **That fresh work landed as Phase B.5** (commit `44cbdb4`) before Phase D, so the parser, AST, and interpreter loop exist without waiting for KP-side consumer work. The old flat `Token.kt` and line-splitter `Parser.kt` were deleted in the same commit; the new `RealParser.kt` is the only parser. Phase C's `meow`→`host.print` routing landed in B.5 too. What's still open in Phase C: the audio (`chirp`/`purr`/`hiss`/`vibrato`/`sample`), screen (`scurry`/`groom`), and env (`sniff_env` / future `env`) commands — they need both parser branches and interpreter branches written, with the corresponding `CatoHost` methods lit up.
 
+### Phase B.6 · Tier 5 label parameters (functions via labeled snippets)
+
+- [ ] Extend `Stmt.Label` to carry declared parameter names: `data class Label(val name: String, val params: List<String>, val pos: SourcePos) : Stmt`
+- [ ] Extend `Stmt.Jump` to carry call arguments: `data class Jump(val label: String, val args: List<Expr>, val pos: SourcePos) : Stmt`
+- [ ] Parser: `:NAME $a $b` parses declared params; `jump :NAME arg1 arg2` parses call args
+- [ ] Interpreter: maintain a call stack (`List<CallFrame>`); on `Jump` with args, push frame, bind args to label's params; on `jump :end`, pop frame and resume at caller ip
+- [ ] Guard against recursive label calls (max depth) to keep the step budget honest
+- [ ] Tests: `RealParserTest` covers `:LABEL $a` parse; new `LabelParamsInterpreterTest` covers binding, return, recursion guard, undeclared-arg mismatch
+- [ ] Bump to `0.3.1-LOCAL`, publish
+
+> Phase B.6 closes a gap the devplan §11 Tier 5 calls for but no Phase B checkbox enumerated. Tier 5 ("a function is a labeled snippet with inputs") and §12 stdlib examples (`std.cli.exit_fail`) both depend on it. Without this phase, `jump :NAME arg1 arg2` parses as a `Jump` to a label with no args, which is currently a runtime error on the missing-label side. The work is small: parser shape changes, interpreter carries a call frame list, and `jump :end` becomes the return opcode.
+
+- [x] Extend `CompareOp` enum to include `GT`, `GTE`, `LTE`, `NEQ` alongside the existing `LT` and `EQ` *(shipped as part of the parser+interpreter work tied to samples/3.cato's `>` workaround; one commit, no new mechanism)*
+- [x] Parser `parseCompare`: recognize the four new operators with `<=` / `>=` checked before `<` / `>` so the longer substrings win; gate `parseExpr` on the full operator set
+- [x] Interpreter `eval` `when (expr.op)`: add `GT`/`GTE`/`LTE`/`NEQ` arms by reusing `compareLess` with swapped args for `GT`/`GTE` and composing `compareLess` + `compareEq` for `LTE`/`GTE`; invert `compareEq` for `NEQ`
+- [x] Tests: four `RealParserTest` cases (one per new operator) + four `InterpreterTest` cases (one per new operator, each running a real script through the engine and asserting `host.printed`)
+- [ ] Bump to `0.3.1-LOCAL`, publish *(deferred — waiting on label-params work that lands in the same bump; not bumping for a compare-op-only commit since §8 rules say each phase gets one bump)*
+
 ### Phase C · Introduce the host SPI
 
 - [x] Add `com.catoscript.runtime.CatoHost` interface and `NullHost` (per §2)
@@ -325,8 +343,20 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Add `cato fmt` to `tools/repl/` (calls `analyzer.format()`)
 - [ ] Add `Stepper` interface to `com.catoscript.interpreter`
 - [ ] Implement `Stepper` in tests; expose `:step` in REPL
+- [ ] Add `cato compile <file.cato>` CLI command: parses the script, runs the analyzer, emits a serialized AST (`.cato.json` via `kotlinx.serialization`) or fails with diagnostics. Builds on the AST-emit primitive (see Phase B.7 below) and `CatoScriptAnalyzer`. The "refuse to emit if errors" behavior comes free from the analyzer; the compile command is the wiring.
 - [ ] Bump to `0.6.0-LOCAL`, publish
 - [ ] (KP side) CatoDE editor calls the library analyzer; debug overlay (F2) uses the library stepper
+
+### Phase B.7 · AST emit (parked for the lesson after B.6)
+
+- [x] Apply `kotlin("plugin.serialization") version "2.2.20"` to `build.gradle.kts` so the `@Serializable` translator is generated at compile time *(MW1)*
+- [x] Add `kotlinx.serialization` annotations to `Expr`, `Stmt`, `CompareOp`, `StrPart`, `SourcePos`, `Program` (no `Value` — runtime type, not AST) *(MW2, six files: SourcePos.kt, Expr.kt, Stmt.kt; sealed interfaces + every member stamped with `@Serializable` and members with `@SerialName` for JSON-side disambiguation)*
+- [x] Add `fun emit(program: Program): String` in `com.catoscript.parser` that JSON-serializes the AST with `prettyPrint = true` *(MW3; new file `AstEmit.kt`)*
+- [ ] Add `cato compile <file.cato>` CLI command in the runner that parses + emits a `.cato.json` next to the source *(MW4 — pending)*
+- [ ] Tests: `emit` round-trips through `parse`; emits known shape for sample scripts *(MW5 — pending; eyeball test landed as `AstEmitTest.``emit prints sample 3 cato JSON for eyeball``, asserts to be added when the shape is locked)*
+- [ ] No bump; ships ahead of Phase G as the foundation for the static-check command there
+
+> Phase B.7 ships the AST-emit half of the user's "real compiler" idea. The static-check half ("refuse to emit if the analyzer finds errors") is Phase G's `cato compile` checkbox above; it cannot ship until `CatoScriptAnalyzer` lands. Sequencing matters: B.7 throws away no code — Phase G's analyzer pass slots in on top of the existing emit.
 
 ### Phase I · Editor support (VS Code now, IntelliJ later)
 

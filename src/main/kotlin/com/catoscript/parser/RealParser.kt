@@ -27,7 +27,7 @@ import com.catoscript.ast.StrPart
 //   digits  -> Num
 //   a <op> b (where op is < or ==) -> Compare
 
-class ParseError(message: String, val pos: SourcePos) :RuntimeException("$message at ${pos.format()}")
+class ParseError(message: String, val pos: SourcePos) : RuntimeException("$message at ${pos.format()}")
 
 object Parser {
     fun parse(source: String): Program {
@@ -69,19 +69,23 @@ object Parser {
                 val valueText = rest.substring(spaceAt + 1).trim()
                 Stmt.Set(name, parseExpr(valueText, pos), pos)
             }
+
             "sniff" -> Stmt.Sniff(parseExpr(rest, pos), pos)
             "purr_at" -> {
                 if (!rest.startsWith(":")) throw ParseError("purr_at expects a label like :NAME", pos)
                 Stmt.PurrAt(rest.substring(1).trim(), pos)
             }
+
             "hiss_at" -> {
                 if (!rest.startsWith(":")) throw ParseError("hiss_at expects a label like :NAME", pos)
                 Stmt.HissAt(rest.substring(1).trim(), pos)
             }
+
             "jump" -> {
                 if (!rest.startsWith(":")) throw ParseError("jump expects a label like :NAME", pos)
                 Stmt.Jump(rest.substring(1).trim(), pos)
             }
+
             else -> throw ParseError("unknown command '$keyword'", pos)
         }
     }
@@ -89,7 +93,10 @@ object Parser {
     private fun parseExpr(text: String, pos: SourcePos): Expr {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) throw ParseError("expected an expression", pos)
-        if (trimmed.contains(" < ") || trimmed.contains(" == ")) {
+        if (trimmed.contains(" < ") || trimmed.contains(" <= ") || trimmed.contains(" > ") || trimmed.contains(" >= ") || trimmed.contains(
+                " != "
+            ) || trimmed.contains(" == ")
+        ) {
             return parseCompare(trimmed, pos)
         }
         return when {
@@ -136,20 +143,55 @@ object Parser {
 
     private fun parseCompare(text: String, pos: SourcePos): Expr {
         val ltAt = text.indexOf(" < ")
+        val gtAt = text.indexOf(" > ")
+        val gteAt = text.indexOf(" >= ")
+        val neqAt = text.indexOf(" != ")
         val eqAt = text.indexOf(" == ")
+        val lteAt = text.indexOf(" <= ")
+
         return when {
+            lteAt != -1 -> Expr.Compare(
+                CompareOp.LTE,
+                parseExpr(text.substring(0, lteAt), pos),
+                parseExpr(text.substring(lteAt + 4), pos),
+                pos
+            )
+
             ltAt != -1 -> Expr.Compare(
                 CompareOp.LT,
                 parseExpr(text.substring(0, ltAt), pos),
                 parseExpr(text.substring(ltAt + 3), pos),
                 pos
             )
+
+            gteAt != -1 -> Expr.Compare(
+                CompareOp.GTE,
+                parseExpr(text.substring(0, gteAt), pos),
+                parseExpr(text.substring(gteAt + 4), pos),
+                pos
+            )
+
+            gtAt != -1 -> Expr.Compare(
+                CompareOp.GT,
+                parseExpr(text.substring(0, gtAt), pos),
+                parseExpr(text.substring(gtAt + 3), pos),
+                pos
+            )
+
+            neqAt != -1 -> Expr.Compare(
+                CompareOp.NEQ,
+                parseExpr(text.substring(0, neqAt), pos),
+                parseExpr(text.substring(neqAt + 4), pos),
+                pos
+            )
+
             eqAt != -1 -> Expr.Compare(
                 CompareOp.EQ,
                 parseExpr(text.substring(0, eqAt), pos),
                 parseExpr(text.substring(eqAt + 4), pos),
                 pos
             )
+
             else -> throw ParseError("cannot parse expression '$text'", pos)
         }
     }
