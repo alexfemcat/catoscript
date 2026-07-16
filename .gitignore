@@ -3,6 +3,14 @@
 # and is synced to other repos via the LEARNING_STRATEGY.md drift policy.
 LEARNING_STRATEGY.md
 
+# Personal planning notes — kept on disk, not in the repo.
+# Includes docs/intellij-plugin-plan.md and any future WIP files.
+docs/
+
+# VS Code extension packages — build artifacts, regenerated via
+# 'npx @vscode/vsce package' from the editor/ folder.
+*.vsix
+
 # Gradle
 .gradle/
 build/
