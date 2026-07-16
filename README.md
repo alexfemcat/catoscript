@@ -92,21 +92,31 @@ Those four scripts use every shape the language has: print, variable, decision, 
 
 ## 2. Try it in thirty seconds
 
-The fastest way to run a `.cato` file is the `cato` launcher at the repo root.
+Pick the path that fits how you want to use catoscript.
+
+### 2.1 Install the distribution (the one-click path)
+
+Download `catoscript-shadow-<version>.zip` from the GitHub Release (or build it locally with `./gradlew shadowDistZip`). The zip contains everything you need:
+
+```
+catoscript-shadow-<version>/
+├── bin/
+│   ├── cato        # bash launcher (Mac, Linux, WSL, git bash)
+│   └── cato.bat    # Windows launcher
+└── lib/
+    └── catoscript-<version>.jar   # the fat jar (parser, interpreter, CLI, stdlib)
+```
+
+Unzip it anywhere and add the `bin/` folder to your `PATH`. That's the whole install.
 
 **Windows (PowerShell or cmd):**
 
 ```powershell
-.\cato.bat run samples\01_first_script\hello.cato
+Expand-Archive .\catoscript-shadow-0.3.0-LOCAL.zip -DestinationPath C:\Tools\
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Tools\catoscript-shadow-0.3.0-LOCAL\bin", "User")
 ```
 
-After running this once, you can add the repo to your PATH so `cato` works from any directory:
-
-```powershell
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Users\magni\Documents\BotsnCoding\Misc\CatoScript-Standalone", "User")
-```
-
-Then close and reopen the terminal. From anywhere:
+Close and reopen the terminal. From anywhere:
 
 ```powershell
 cato run hello.cato
@@ -115,21 +125,36 @@ cato run hello.cato
 **Mac / Linux / git bash / WSL:**
 
 ```bash
-./cato run samples/01_first_script/hello.cato
+unzip catoscript-shadow-0.3.0-LOCAL.zip -d ~/.local/
+export PATH="$HOME/.local/catoscript-shadow-0.3.0-LOCAL/bin:$PATH"
 ```
 
-Or symlink it somewhere on your PATH:
+From anywhere:
 
 ```bash
-ln -s "$(pwd)/cato" /usr/local/bin/cato
+cato run hello.cato
 ```
 
-After that, `cato run hello.cato` works from any directory.
+Both `cato run <file>` and `cato <file>` work. The launcher discovers the fat jar next to itself; no classpath, no `~/.m2` lookup.
 
-**Prerequisite:** the launcher reads the published jar from `~/.m2/repository`. Build it once with:
+### 2.2 Just run a script (one jar, no install)
+
+If you have a fat jar and a JDK, that's enough:
+
+```bash
+java -jar catoscript-0.3.0-LOCAL.jar hello.cato
+```
+
+The jar bundles the parser, interpreter, CLI, Kotlin stdlib, and `kotlinx-serialization-json`. One file, no classpath. Use this when you don't want to put `cato` on `PATH` — for CI, for one-off scripts, for sandboxed environments.
+
+### 2.3 Build from source (the dev launcher)
+
+For hacking on catoscript itself, the launcher at the repo root (`cato.bat` on Windows, `cato.sh` on Mac/Linux) reads the published fat jar from `~/.m2/repository`. Rebuild and re-publish whenever you change Kotlin:
 
 ```bash
 ./gradlew publishToMavenLocal
+./cato.bat run samples\01_first_script\hello.cato   # Windows
+./cato.sh run samples/01_first_script/hello.cato   # Mac/Linux
 ```
 
 The CLI REPL at `./gradlew :tools:repl:run` lands later in Phase F (devplan §6). For now, `cato run <file>` is the CLI path.

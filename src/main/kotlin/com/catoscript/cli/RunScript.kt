@@ -1,10 +1,11 @@
 package com.catoscript.cli
 
 // RunScript: minimal CLI entry point. Reads a .cato file, parses it,
-// runs it through the interpreter with NullHost, prints the result.
+// runs it through the interpreter with ConsoleHost, prints the result.
 // Used to smoke-test catoscript end to end from the terminal.
 //
-// Usage:   ./gradlew run -PappArgs="samples/01_first_script/hello.cato"
+// Usage:   cato run <file.cato>
+//          cato <file.cato>
 
 import com.catoscript.interpreter.Interpreter
 import com.catoscript.interpreter.InterpreterResult
@@ -15,10 +16,17 @@ import java.io.File
 
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
-        System.err.println("usage: run <file.cato>")
+        System.err.println("usage: cato run <file.cato>")
         exitProcess(2)
     }
-    val path = args[0]
+    // Strip the optional "run" subcommand so both `cato run foo.cato`
+    // and `cato foo.cato` work. The launcher passes args verbatim.
+    val scriptArgs = if (args[0] == "run") args.drop(1) else args.toList()
+    if (scriptArgs.isEmpty()) {
+        System.err.println("usage: cato run <file.cato>")
+        exitProcess(2)
+    }
+    val path = scriptArgs[0]
     val source = File(path).readText()
     val program = Parser.parse(source)
     val host = ConsoleHost()
