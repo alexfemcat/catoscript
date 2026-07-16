@@ -92,11 +92,47 @@ Those four scripts use every shape the language has: print, variable, decision, 
 
 ## 2. Try it in thirty seconds
 
-From the repo root:
+The fastest way to run a `.cato` file is the `cato` launcher at the repo root.
+
+**Windows (PowerShell or cmd):**
+
+```powershell
+.\cato.bat run samples\01_first_script\hello.cato
+```
+
+After running this once, you can add the repo to your PATH so `cato` works from any directory:
+
+```powershell
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Users\magni\Documents\BotsnCoding\Misc\CatoScript-Standalone", "User")
+```
+
+Then close and reopen the terminal. From anywhere:
+
+```powershell
+cato run hello.cato
+```
+
+**Mac / Linux / git bash / WSL:**
 
 ```bash
-./gradlew :tools:repl:run
+./cato run samples/01_first_script/hello.cato
 ```
+
+Or symlink it somewhere on your PATH:
+
+```bash
+ln -s "$(pwd)/cato" /usr/local/bin/cato
+```
+
+After that, `cato run hello.cato` works from any directory.
+
+**Prerequisite:** the launcher reads the published jar from `~/.m2/repository`. Build it once with:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+The CLI REPL at `./gradlew :tools:repl:run` lands later in Phase F (devplan §6). For now, `cato run <file>` is the CLI path.
 
 The REPL reads:
 
