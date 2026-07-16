@@ -1,2 +1,7 @@
 meow "hello"
 meow "world"
+
+
+set $name "deez"
+
+meow $name

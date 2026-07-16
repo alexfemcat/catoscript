@@ -2,7 +2,7 @@
   "name": "catoscript",
   "displayName": "catoscript",
   "description": "Syntax highlighting for catoscript .cato files, mirroring the Kernel Panic CatoDE palette",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": { "vscode": "^1.70.0" },
   "contributes": {
     "languages": [
@@ -22,9 +22,9 @@
     ],
     "themes": [
       {
-        "label": "catoscript (Kernel Panic palette)",
+        "label": "catoscript dark",
         "uiTheme": "vs-dark",
-        "path": "./themes/catoscript-color-theme.json"
+        "path": "./themes/catoscript-dark.json"
       }
     ]
   }
