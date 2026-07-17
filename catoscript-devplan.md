@@ -245,6 +245,19 @@ A long-term target: a language server that any editor can plug into. Not require
 
 **See §10 for the explicit "no" list** — the things that look like good ideas and aren't.
 
+### Confirmed additions (2026-07-17)
+
+Items locked in this session — pass all four checks (§5, §10, §11, §13) and ship in their own commits.
+
+- [ ] **Lists + `[over]` iteration + syntax coloring for both (shipped as one block).** Adds (a) list literals via `[]` (one variable holds many things in order), (b) the `[over]` bracket operator for walking a list one item at a time, and (c) editor syntax coloring for both new syntaxes in the TextMate grammar (`editor/syntaxes/catoscript.tmLanguage.json`). Ships as one commit because the three pieces form one coherent feature: lists without `[over]` are dead data, `[over]` without lists has nothing to walk, and both need coloring to be readable. The bracket syntax fits the punctuation-not-keyword rule from §14; Tier 6 already calls lists *"a row of boxes"* (§11).
+- [ ] **`()` function-call punctuation + syntax coloring (shipped as one block).** Adds (a) `()` as the slot punctuation for declaring and calling functions — `:greet($name)` is the template declaration, `greet("mochi")` is the call — and (b) editor syntax coloring for the new function-call syntax in the TextMate grammar. Ships as one commit because the two pieces form one coherent feature: the punctuation without coloring is unreadable in the editor, and coloring without the punctuation has nothing to color. Fits the punctuation-not-keyword rule from §14 (does not add `def`/`fn`). Underlying mechanism is already shipped (Tier 5 + Phase B.6 label parameters); this is the readable surface.
+
+### Proposed (under review, 2026-07-17)
+
+These passed the §11 read-out-loud test but do not collapse line count, so they sit outside the §5.9 bar until the project decides whether readability alone is sufficient for *punctuation* additions (distinct from the bar for keywords).
+
+- [ ] **`[is]` bracket operator — predication as declaration.** Lets declarative assignments read as english sentences: `$state [is] loading` reads as *"the state is loading"* where `set $state "loading"` reads as *"set state to loading."* Runtime effect is identical to `set` (both bind name to value); the gain is read-out-loud quality for status blocks, state names, role tags. Punctuation, not a keyword — does not violate the closed-grammar rule from §14. **Open question:** does the §10 amendment process apply when the proposal changes how a line reads but not how long it is?
+
 ---
 
 ## 6. Migration order
