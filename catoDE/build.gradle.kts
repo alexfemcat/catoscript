@@ -13,10 +13,14 @@ kotlin {
 
 dependencies {
     implementation(compose.desktop.currentOs)
-    // The catoscript library (Parser/Interpreter) currently lives in the
-    // root project. Repoint this at ":cato-kotlin" if/when the lib is
-    // extracted into its own module.
     implementation(project(":"))
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 compose.desktop {
