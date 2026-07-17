@@ -59,10 +59,14 @@ A new capability lands only if it passes all four checks (§5 approves, §10 doe
 ./gradlew :tools:repl:run            # explicit form, always works
 ./gradlew run                        # shorthand from repo root, when only one subproject defines :run
 
+# Run the catoDE IDE (Compose Desktop; Phase 1)
+./gradlew :catoDE:run                # launches the IDE window
+./gradlew :catoDE:shadowJar          # produces build/libs/catoDE-0.1.0-LOCAL.jar
+
 # Build everything
 ./gradlew build
 
-# Publish to mavenLocal for KP to consume
+# Publish to mavenLocal for KP and catoDE to consume
 ./gradlew publishToMavenLocal
 ```
 
@@ -95,6 +99,8 @@ CatoScript-Standalone/
 │   └── errors/                       # CatoScriptError, categories, Levenshtein suggestions
 ├── src/test/kotlin/com/catoscript/   # one test file per slice; uses NullHost
 ├── samples/                          # .cato files; golden scripts organized by tier
+├── editor/                           # VS Code TextMate grammar (.vsix)
+├── catoDE/                           # standalone Compose Desktop IDE (devplan Phase 1)
 └── tools/
     └── repl/                         # CLI REPL app (devplan §6 Phase F); stdlib host
 ```

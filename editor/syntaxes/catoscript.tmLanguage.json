@@ -50,12 +50,16 @@
           "match": "\\b(?:jump|pounce|purr_at|hiss_at|reflex|breed|end_breed|instinct)\\b"
         },
         {
+          "name": "keyword.control.file.catoscript",
+          "match": "\\binclude\\b"
+        },
+        {
           "name": "keyword.visual.catoscript",
           "match": "\\b(?:glow|blink|canvas_mode|draw_box|button|gauge|input_field|trail|glitch_box|layer_depth|window|view_port|skin|focus_win|stencil|tilt|magnify|window|skin|focus_win)\\b"
         },
         {
           "name": "keyword.system.catoscript",
-          "match": "\\b(?:include|coat|sniff_env|nine_lives|on_idle|def_asset|end_asset|on_hover|on_pet_click|ignore|focus)\\b"
+          "match": "\\b(?:coat|sniff_env|nine_lives|on_idle|def_asset|end_asset|on_hover|on_pet_click|ignore|focus)\\b"
         },
         {
           "name": "keyword.neural.catoscript",
