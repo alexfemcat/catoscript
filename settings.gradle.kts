@@ -8,5 +8,6 @@ dependencyResolutionManagement {
         mavenLocal()
         mavenCentral()
         google()
+        gradlePluginPortal() // Added for plugin resolution
     }
 }

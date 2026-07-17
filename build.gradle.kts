@@ -7,6 +7,11 @@ plugins {
     `maven-publish`
     id("application")
     id("com.gradleup.shadow") version "9.0.0-beta12"
+    // NOTE: the Compose Multiplatform plugin is intentionally NOT applied here.
+    // This root project is the catoscript CLI library (JVM only). Applying
+    // org.jetbrains.compose here pulls in the Kotlin/Native target machinery
+    // and triggers the KonanTarget$IOS_ARM32 init crash. Compose lives only
+    // in the :catoDE module.
 }
 
 group = "com.catoscript"

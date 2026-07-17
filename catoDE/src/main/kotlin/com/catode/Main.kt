@@ -1,6 +1,6 @@
 package com.catode
 
-import androidx.compose.desktop.ui.dsl.singleWindowApplication
+import androidx.compose.ui.window.singleWindowApplication
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
