@@ -67,3 +67,6 @@ desktop.ini
 
 # Coroutines agent debug output
 .kotlin_agent.db
+
+# personal docs
+ignored/

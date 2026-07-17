@@ -1,0 +1,82 @@
+# samples/grade.cato
+# Tier 3 showcase: a small grade classifier using sniff + purr_at + hiss_at
+# as the catoscript shape of if / else if / else.
+#
+# Run:
+#   cato run samples/grade.cato
+#
+# Change the values of $score1, $score2, $score3 to try different averages.
+
+set $score1 92
+set $score2 87
+set $score3 91
+
+# Compute the sum by hand. No arithmetic in the language yet,
+# so we just hardcode it. A future tier will let the script
+# add numbers itself; for now the cat is the adding machine.
+set $sum 274
+
+# Integer average of three scores (still hand-computed).
+set $avg 91
+
+meow "score 1: $score1"
+meow "score 2: $score2"
+meow "score 3: $score3"
+meow "average: $avg"
+
+# Tier 3: if / else if / else, spelled out in cat vocabulary.
+#
+# In a language with curly braces this would read:
+#   if (avg >= 90)      grade = "A";
+#   else if (avg >= 80) grade = "B";
+#   else if (avg >= 70) grade = "C";
+#   else if (avg >= 60) grade = "D";
+#   else                grade = "F";
+#
+# In catoscript it reads the same way, just spelled as sentences:
+#   sniff, then purr_at (yes) or hiss_at (no), then walk forward.
+
+sniff $avg >= 90
+purr_at :A
+hiss_at :NOT_A
+
+sniff $avg >= 80
+purr_at :B
+hiss_at :NOT_B
+
+sniff $avg >= 70
+purr_at :C
+hiss_at :NOT_C
+
+sniff $avg >= 60
+purr_at :D
+hiss_at :F
+
+:A
+meow "grade: A"
+jump :END
+
+:B
+meow "grade: B"
+jump :END
+
+:C
+meow "grade: C"
+jump :END
+
+:D
+meow "grade: D"
+jump :END
+
+:F
+meow "grade: F"
+jump :END
+
+# The NOT_A / NOT_B / NOT_C labels exist only so hiss_at has somewhere
+# to land that isn't the next grade. They fall through to the next sniff.
+:NOT_A
+:NOT_B
+:NOT_C
+jump :F
+
+:END

@@ -1,5 +1,5 @@
 set $hp 5
-sniff $hp > 10
+sniff $hp < 10
 purr_at :DEAD
 meow "still alive"
 jump :END
