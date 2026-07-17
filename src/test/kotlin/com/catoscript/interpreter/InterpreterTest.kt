@@ -7,6 +7,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 
 class RecordingHost : CatoHost {
     val printed: MutableList<String> = mutableListOf()
@@ -167,4 +169,23 @@ class InterpreterTest {
         Interpreter(host).run(Parser.parse(source))
         assertEquals(listOf("different"), host.printed)
     }
+    @Test
+    fun `include skips library top-level code on load`(@TempDir tmp: Path) {
+        val lib = tmp.resolve("lib.cato").toFile()
+        lib.writeText("meow \"lib top-level should not print\"")
+        val main = tmp.resolve("main.cato").toFile()
+        main.writeText("include \"lib.cato\"\nmeow \"main done\"")
+        val host = RecordingHost()
+        val result = Interpreter(host).run(Parser.parse(main.readText(), main.absolutePath))
+        assertEquals(InterpreterResult.Completed, result)
+        assertEquals(listOf("main done"), host.printed)
+    }
+
+    // Interpreter-level include behavior is covered transitively: the
+    // parser inlines included statements as ordinary Stmt nodes, so the
+    // interpreter executes them with no special-case logic. Adding a
+    // separate interpreter test here would be testing the interpreter's
+    // general statement-walking, which is already covered by the other
+    // InterpreterTest cases. If the parser is right, the interpreter
+    // is right for free.
 }

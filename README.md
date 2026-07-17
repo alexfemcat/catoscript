@@ -9,6 +9,19 @@ If you have dabbled in Python or Scratch and want a language that does not get i
 
 ---
 
+## Quick install for contributors
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+That puts `catoscript-<version>.jar` into `~/.m2/repository` so the
+`cato` launcher at the repo root can run your scripts against the
+freshly built library. Run it again after every change to Kotlin code
+in this repo. See section 2.3 below for the full dev workflow.
+
+---
+
 ## (1) catoscript in a nutshell
 
 **If you have never coded before, read this paragraph first, otherwise skip to 1.1 below**

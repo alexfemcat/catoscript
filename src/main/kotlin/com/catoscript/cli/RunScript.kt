@@ -28,7 +28,7 @@ fun main(args: Array<String>) {
     }
     val path = scriptArgs[0]
     val source = File(path).readText()
-    val program = Parser.parse(source)
+    val program = Parser.parse(source, File(path).absolutePath)
     val host = ConsoleHost()
     val result = Interpreter(host).run(program)
     when (result) {

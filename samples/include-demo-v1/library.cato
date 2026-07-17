@@ -1,0 +1,10 @@
+# samples/include-demo/library.cato
+#
+# Demonstrates the skip-guard behavior of `include`.
+# The top-level `meow` below should NOT print when this file
+# is included from another script.
+
+meow "lib: top-level should NOT print"
+
+:UNREACHABLE_FROM_MAIN
+  meow "lib: this is unreachable until Tier 5 lands"

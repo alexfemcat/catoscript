@@ -27,34 +27,56 @@ import com.catoscript.ast.StrPart
 //   digits  -> Num
 //   a <op> b (where op is < or ==) -> Compare
 
-class ParseError(message: String, val pos: SourcePos) : RuntimeException("$message at ${pos.format()}")
+class ParseError(message: String, val pos: SourcePos, val originPath: String? = null) :
+    RuntimeException(buildMessage(message, pos, originPath)) {
+    companion object {
+        private fun buildMessage(message: String, pos: SourcePos, originPath: String?): String {
+            val where = pos.format()
+            return if (originPath != null) "$message in $originPath at $where" else "$message at $where"
+        }
+    }
+}
 
 object Parser {
-    fun parse(source: String): Program {
+    private val includeSkipCounter = java.util.concurrent.atomic.AtomicInteger(0)
+
+    fun parse(
+        source: String,
+        basePath: String? = null,
+        inProgress: Set<String> = emptySet(),
+    ): Program {
+
+
         val lines = source.lines()
         val stmts = mutableListOf<Stmt>()
         for ((index, line) in lines.withIndex()) {
             val lineNumber = index + 1
-            stmts.add(parseLine(line, lineNumber))
+            stmts.addAll(parseLine(line, lineNumber, basePath, inProgress))
         }
         return Program(stmts)
     }
 
-    private fun parseLine(line: String, lineNumber: Int): Stmt {
+    private fun parseLine(line: String, lineNumber: Int, basePath: String?, inProgress: Set<String>): List<Stmt> {
         val pos = SourcePos(lineNumber, 1)
         val trimmed = line.trim()
-        if (trimmed.isEmpty()) return Stmt.Empty
+        if (trimmed.isEmpty()) return listOf(Stmt.Empty)
         return when {
-            trimmed.startsWith("#") -> Stmt.Comment(trimmed.substring(1).trim(), pos)
-            trimmed.startsWith(":") -> Stmt.Label(trimmed.substring(1).trim(), pos)
+            trimmed.startsWith("#") -> listOf(Stmt.Comment(trimmed.substring(1).trim(), pos))
+            trimmed.startsWith(":") -> listOf(Stmt.Label(trimmed.substring(1).trim(), pos))
             else -> {
                 val spaceAt = trimmed.indexOf(' ')
                 val keyword = if (spaceAt == -1) trimmed else trimmed.substring(0, spaceAt)
                 val rest = if (spaceAt == -1) "" else trimmed.substring(spaceAt + 1).trim()
-                parseKeyword(keyword, rest, pos)
-
+                if (keyword == "include") {
+                    if (!rest.startsWith("\"") || !rest.endsWith("\"") || rest.length < 2) {
+                        throw ParseError("include expects a quoted path like include \"lib.cato\"", pos, basePath)
+                    }
+                    val path = rest.substring(1, rest.length - 1)
+                    parseInclude(path, basePath, inProgress, pos)
+                } else {
+                    listOf(parseKeyword(keyword, rest, pos))
+                }
             }
-
         }
     }
 
@@ -90,109 +112,137 @@ object Parser {
         }
     }
 
-    private fun parseExpr(text: String, pos: SourcePos): Expr {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) throw ParseError("expected an expression", pos)
-        if (trimmed.contains(" < ") || trimmed.contains(" <= ") || trimmed.contains(" > ") || trimmed.contains(" >= ") || trimmed.contains(
-                " != "
-            ) || trimmed.contains(" == ")
-        ) {
-            return parseCompare(trimmed, pos)
+    private fun parseInclude(
+        path: String,
+        basePath: String?,
+        inProgress: Set<String>,
+        pos: SourcePos
+    ): List<Stmt> {
+        val resolvedPath = if (java.io.File(path).isAbsolute) path
+        else if (basePath != null) java.io.File(basePath).parentFile?.let { java.io.File(it, path).path }
+            ?: throw ParseError("cannot resolve include path '$path'", pos, basePath)
+        else path
+        val file = java.io.File(resolvedPath)
+        if (resolvedPath in inProgress) {
+            val chain = (inProgress + resolvedPath).joinToString(" -> ")
+            throw ParseError("cyclic include: $chain", pos, basePath)
         }
-        return when {
-            trimmed.startsWith("\"") -> parseString(trimmed, pos)
-            trimmed.startsWith("$") -> Expr.VarRef(trimmed.substring(1), pos)
-            trimmed.all { it.isDigit() } -> Expr.Num(trimmed.toLong(), pos)
-            else -> parseCompare(trimmed, pos)
-        }
+        if (!file.exists()) throw ParseError("included file not found: $resolvedPath", pos, basePath)
+        val source = file.readText()
+        val innerStmts = parse(source, resolvedPath, inProgress + resolvedPath).stmts
+        val skipLabel = "__include_skip_${includeSkipCounter.incrementAndGet()}"
+        val wrapped = mutableListOf<Stmt>()
+        wrapped.add(Stmt.Jump(skipLabel, pos))
+        wrapped.addAll(innerStmts)
+        wrapped.add(Stmt.Label(skipLabel, pos))
+        return wrapped
+
+
     }
+}
 
-    private fun parseString(text: String, pos: SourcePos): Expr.Str {
-        val parts = mutableListOf<StrPart>()
-        var i = 1
-        val current = StringBuilder()
-        while (i < text.length && text[i] != '"') {
-            val c = text[i]
-            if (c == '\\' && i + 1 < text.length && text[i + 1] == '$') {
-                current.append('$')
-                i += 2
-                continue
-            }
-            if (c == '$') {
-                if (current.isNotEmpty()) {
-                    parts.add(StrPart.Literal(current.toString()))
-                    current.clear()
-                }
-                val nameStart = i + 1
-                var nameEnd = nameStart
-                while (nameEnd < text.length && (text[nameEnd].isLetterOrDigit() || text[nameEnd] == '_')) {
-                    nameEnd++
-                }
-                if (nameEnd == nameStart) throw ParseError("'\$' must be followed by a variable name", pos)
-                parts.add(StrPart.Interpolation(text.substring(nameStart, nameEnd)))
-                i = nameEnd
-                continue
-            }
-            current.append(c)
-            i++
-        }
-        if (i >= text.length) throw ParseError("unterminated string literal", pos)
-        if (current.isNotEmpty()) parts.add(StrPart.Literal(current.toString()))
-        return Expr.Str(parts, pos)
+private fun parseExpr(text: String, pos: SourcePos): Expr {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) throw ParseError("expected an expression", pos)
+    if (trimmed.contains(" < ") || trimmed.contains(" <= ") || trimmed.contains(" > ") || trimmed.contains(" >= ") || trimmed.contains(
+            " != "
+        ) || trimmed.contains(" == ")
+    ) {
+        return parseCompare(trimmed, pos)
     }
+    return when {
+        trimmed.startsWith("\"") -> parseString(trimmed, pos)
+        trimmed.startsWith("$") -> Expr.VarRef(trimmed.substring(1), pos)
+        trimmed.all { it.isDigit() } -> Expr.Num(trimmed.toLong(), pos)
+        else -> parseCompare(trimmed, pos)
+    }
+}
 
-    private fun parseCompare(text: String, pos: SourcePos): Expr {
-        val ltAt = text.indexOf(" < ")
-        val gtAt = text.indexOf(" > ")
-        val gteAt = text.indexOf(" >= ")
-        val neqAt = text.indexOf(" != ")
-        val eqAt = text.indexOf(" == ")
-        val lteAt = text.indexOf(" <= ")
-
-        return when {
-            lteAt != -1 -> Expr.Compare(
-                CompareOp.LTE,
-                parseExpr(text.substring(0, lteAt), pos),
-                parseExpr(text.substring(lteAt + 4), pos),
-                pos
-            )
-
-            ltAt != -1 -> Expr.Compare(
-                CompareOp.LT,
-                parseExpr(text.substring(0, ltAt), pos),
-                parseExpr(text.substring(ltAt + 3), pos),
-                pos
-            )
-
-            gteAt != -1 -> Expr.Compare(
-                CompareOp.GTE,
-                parseExpr(text.substring(0, gteAt), pos),
-                parseExpr(text.substring(gteAt + 4), pos),
-                pos
-            )
-
-            gtAt != -1 -> Expr.Compare(
-                CompareOp.GT,
-                parseExpr(text.substring(0, gtAt), pos),
-                parseExpr(text.substring(gtAt + 3), pos),
-                pos
-            )
-
-            neqAt != -1 -> Expr.Compare(
-                CompareOp.NEQ,
-                parseExpr(text.substring(0, neqAt), pos),
-                parseExpr(text.substring(neqAt + 4), pos),
-                pos
-            )
-
-            eqAt != -1 -> Expr.Compare(
-                CompareOp.EQ,
-                parseExpr(text.substring(0, eqAt), pos),
-                parseExpr(text.substring(eqAt + 4), pos),
-                pos
-            )
-
-            else -> throw ParseError("cannot parse expression '$text'", pos)
+private fun parseString(text: String, pos: SourcePos): Expr.Str {
+    val parts = mutableListOf<StrPart>()
+    var i = 1
+    val current = StringBuilder()
+    while (i < text.length && text[i] != '"') {
+        val c = text[i]
+        if (c == '\\' && i + 1 < text.length && text[i + 1] == '$') {
+            current.append('$')
+            i += 2
+            continue
         }
+        if (c == '$') {
+            if (current.isNotEmpty()) {
+                parts.add(StrPart.Literal(current.toString()))
+                current.clear()
+            }
+            val nameStart = i + 1
+            var nameEnd = nameStart
+            while (nameEnd < text.length && (text[nameEnd].isLetterOrDigit() || text[nameEnd] == '_')) {
+                nameEnd++
+            }
+            if (nameEnd == nameStart) throw ParseError("'\$' must be followed by a variable name", pos)
+            parts.add(StrPart.Interpolation(text.substring(nameStart, nameEnd)))
+            i = nameEnd
+            continue
+        }
+        current.append(c)
+        i++
+    }
+    if (i >= text.length) throw ParseError("unterminated string literal", pos)
+    if (current.isNotEmpty()) parts.add(StrPart.Literal(current.toString()))
+    return Expr.Str(parts, pos)
+}
+
+private fun parseCompare(text: String, pos: SourcePos): Expr {
+    val ltAt = text.indexOf(" < ")
+    val gtAt = text.indexOf(" > ")
+    val gteAt = text.indexOf(" >= ")
+    val neqAt = text.indexOf(" != ")
+    val eqAt = text.indexOf(" == ")
+    val lteAt = text.indexOf(" <= ")
+
+    return when {
+        lteAt != -1 -> Expr.Compare(
+            CompareOp.LTE,
+            parseExpr(text.substring(0, lteAt), pos),
+            parseExpr(text.substring(lteAt + 4), pos),
+            pos
+        )
+
+        ltAt != -1 -> Expr.Compare(
+            CompareOp.LT,
+            parseExpr(text.substring(0, ltAt), pos),
+            parseExpr(text.substring(ltAt + 3), pos),
+            pos
+        )
+
+        gteAt != -1 -> Expr.Compare(
+            CompareOp.GTE,
+            parseExpr(text.substring(0, gteAt), pos),
+            parseExpr(text.substring(gteAt + 4), pos),
+            pos
+        )
+
+        gtAt != -1 -> Expr.Compare(
+            CompareOp.GT,
+            parseExpr(text.substring(0, gtAt), pos),
+            parseExpr(text.substring(gtAt + 3), pos),
+            pos
+        )
+
+        neqAt != -1 -> Expr.Compare(
+            CompareOp.NEQ,
+            parseExpr(text.substring(0, neqAt), pos),
+            parseExpr(text.substring(neqAt + 4), pos),
+            pos
+        )
+
+        eqAt != -1 -> Expr.Compare(
+            CompareOp.EQ,
+            parseExpr(text.substring(0, eqAt), pos),
+            parseExpr(text.substring(eqAt + 4), pos),
+            pos
+        )
+
+        else -> throw ParseError("cannot parse expression '$text'", pos)
     }
 }

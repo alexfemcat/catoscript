@@ -1,0 +1,12 @@
+# samples/include-demo/main.cato
+#
+# Includes library.cato and verifies that:
+#   1. The library's top-level `meow` does NOT print (skip-guard works).
+#   2. After include, control continues normally in main.
+#
+# Run from samples/include-demo/:
+#   cato run main.cato
+
+include "library.cato"
+
+meow "main: include skipped library top-level, now main runs"
