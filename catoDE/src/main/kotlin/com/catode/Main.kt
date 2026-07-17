@@ -15,7 +15,7 @@ import androidx.compose.material.Text
 import androidx.compose.ui.Modifier
 
 fun main() = singleWindowApplication(
-    title = "catoDE",
+    title = "catoDE - untitled.cato",
 ) {
     MaterialTheme {
         var editorText by remember { mutableStateOf("meow \"hello\"") }
@@ -33,6 +33,7 @@ fun main() = singleWindowApplication(
                     OutputPane(currentResult)
                 }
             }
+            StatusBar(filename = "untitled.cato")
         }
     }
 }
