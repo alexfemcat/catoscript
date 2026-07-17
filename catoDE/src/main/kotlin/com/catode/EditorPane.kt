@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.OffsetMapping
 
 @Composable
 fun EditorPane() {
@@ -17,6 +20,9 @@ fun EditorPane() {
     BasicTextField(
         value = editorText,
         onValueChange = { newText -> editorText = newText },
-        modifier = Modifier.fillMaxSize().padding(12.dp)
+        modifier = Modifier.fillMaxSize().padding(12.dp),
+        visualTransformation = VisualTransformation { original ->
+            TransformedText(highlight(original.text), OffsetMapping.Identity)
+        }
     )
 }
