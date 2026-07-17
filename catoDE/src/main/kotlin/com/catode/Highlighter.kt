@@ -28,13 +28,25 @@ data class TokenSpan(
     val kind: TokenKind,
 )
 
-object HighLighter {
+object Highlighter {
     private val commentRegex: Regex = Regex("#.*")
+    private val numberRegex: Regex = Regex("""\b[0-9]+\b""")
+    private val variableRegex: Regex = Regex("""\$[A-Za-z_][A-Za-z0-9_]*""")
+    private val labelRegex: Regex = Regex("""^\s*:[A-Za-z_][A-Za-z0-9_]*""", RegexOption.MULTILINE)
 
     fun tokenize(text: String): List<TokenSpan> {
         val spans : MutableList<TokenSpan> = mutableListOf()
         for (match in commentRegex.findAll(text)) {
             spans.add(TokenSpan(match.range, TokenKind.COMMENT))
+        }
+        for (match in numberRegex.findAll(text)) {
+            spans.add(TokenSpan(match.range, TokenKind.NUMBER))
+        }
+        for (match in variableRegex.findAll(text)) {
+            spans.add(TokenSpan(match.range, TokenKind.VARIABLE))
+        }
+        for (match in labelRegex.findAll(text)) {
+            spans.add(TokenSpan(match.range, TokenKind.LABEL))
         }
         return spans
     }
