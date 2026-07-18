@@ -4,12 +4,6 @@
 # their name with arguments, and the body returns control with
 # `jump :end`." Each argument is bound to the parameter of the
 # same position in `:NAME $a $b`. No `def`, no `return`, no `()`.
-#
-# Note the "call before body" ordering: because labels are no-ops
-# at runtime, the body must sit *after* the call so the body runs
-# via the call (with params bound) and not via top-level fall-through
-# (where the params would be undefined). See the devplan §11
-# pedagogical rationale for why we teach functions this way.
 
 # 1. Single parameter. :GREET has one slot, $name.
 #    `jump :GREET "mochi"` binds $name = "mochi" inside the body.
