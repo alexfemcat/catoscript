@@ -25,6 +25,10 @@ The language's design is locked to four documents in `catoscript-devplan.md`:
 
 A new capability lands only if it passes all four checks (§5 approves, §10 doesn't reject, §11 reads out loud, §13 fits the four-gap list or is pure stdlib). The full process is in `catoscript-devplan.md` §14.
 
+### The implementation snapshot
+
+**`catoscript-reference.md` is what catoscript does today.** The devplan describes design intent — what catoscript *is intended* to become. The reference describes implementation truth — every shipped command, expression, AST node, host method, error message, and known pitfall, verified by reading every source file. AI assistants writing catoscript code should consult the reference first; the devplan is the design spec, the reference is the implementation doc, the source is the ground truth. Where the reference and the devplan disagree on runtime behavior, the reference wins.
+
 **Tech Stack:**
 
 - Kotlin 2.2.20, Gradle 9.6.1, JDK 21 toolchain (JDK 25 acceptable on host)
@@ -80,6 +84,7 @@ A new capability lands only if it passes all four checks (§5 approves, §10 doe
 CatoScript-Standalone/
 ├── AGENTS.md                         # this file
 ├── AI_POLICY.md                      # how AI tools are used in this repo
+├── catoscript-reference.md           # implementation snapshot — what catoscript does today (for AI assistants)
 ├── catoscript-devplan.md             # source of truth for what catoscript is / isn't
 ├── README.md                         # 30-second quickstart ("write a .cato, run it")
 ├── settings.gradle.kts
@@ -127,8 +132,9 @@ This repo's design lives in `catoscript-devplan.md`. Specifically:
 | CLI tools + UI stdlib (`std.cli`, `std.ui`) | §12 (CLI tools and UI stdlib) |
 | Implementation discipline (the four-item gap list) | §13 (Implementation discipline) |
 | The capability surface (`std.time`, `std.fs`, `std.test`, `std.json`) | §14 (Capability surface) |
+| What catoscript actually does today (every shipped command, AST shape, error message, host method) | `catoscript-reference.md` |
 
-If any other document in this repo contradicts `catoscript-devplan.md`, the devplan wins.
+If any other document in this repo contradicts `catoscript-devplan.md`, the devplan wins for design intent; `catoscript-reference.md` wins for runtime behavior. When the two disagree on what currently runs, the reference wins; when they disagree on what should be added, the devplan wins.
 
 ---
 
@@ -157,6 +163,18 @@ If any other document in this repo contradicts `catoscript-devplan.md`, the devp
 11. **Read-out-loud test for new primitives.** Every new `std.*` function name and every new command must clear §11 of the devplan: *is there a one-sentence English version of this, in cat vocabulary, that a player could say out loud and have the program do what they meant?* If not, the name is wrong. Find a better word before shipping.
 
 12. **Handwcrafted code only.** Per `AI_POLICY.md`.
+
+---
+
+## 6. Subagents
+
+This repo has one project-scoped subagent: **docs-doctor** (`.claude/agents/docs-doctor.md`). It is the docs maintainer for `catoscript-reference.md`, `catoscript-devplan.md`, and this file.
+
+**Invoke it explicitly** with `deploy docs-doctor` or `@docs-doctor`, optionally naming what just shipped (e.g. "we just landed B.6", "[is] is now real"). It will diff the docs against `src/main/` and `src/test/` and patch the drift.
+
+**Invoke it implicitly** when a feature lands: a new file in `src/main/`, a previously-failing test that now passes, a phase checkbox ticked in the devplan. The agent reads the source on its own and updates the docs without being asked.
+
+**Authority order the agent follows** (top wins): Kotlin source → `catoscript-reference.md` → `catoscript-devplan.md` → `AGENTS.md`. When docs disagree with source, source wins and the doc is patched. The agent does not edit Kotlin — it is docs-only. If you ask it to implement a feature, it will refuse and surface that to you.
 
 ---
 
