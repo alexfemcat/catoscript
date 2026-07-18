@@ -162,6 +162,11 @@
       "settings": { "foreground": "#ff5555", "fontStyle": "bold" }
     },
     {
+      "name": "Catoscript: return opcode (:end — pops the call frame)",
+      "scope": ["keyword.control.return.catoscript"],
+      "settings": { "foreground": "#8be9fd", "fontStyle": "bold" }
+    },
+    {
       "name": "Catoscript: strings",
       "scope": ["string.quoted.double.catoscript"],
       "settings": { "foreground": "#f1fa8c" }
