@@ -321,6 +321,8 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 > Phase B.6 closes a gap the devplan §11 Tier 5 calls for but no Phase B checkbox enumerated. Tier 5 ("a function is a labeled snippet with inputs") and §12 stdlib examples (`std.cli.exit_fail`) both depend on it. The work is small: parser shape changes, interpreter carries a call frame list, and `jump :end` becomes the return opcode.
 >
 > **Shipped 2026-07-18 · 0.3.1-LOCAL · 6 new interpreter tests.** Source is green, all 25 tests pass (19 existing + 6 in `LabelParamsInterpreterTest.kt`), `./gradlew build` runs clean. Interpreter changes: `InterpreterPolicy.maxCallDepth = 64`; private nested `CallFrame(returnIp, callerVariables)`; `buildLabelParamsMap` (only labels with non-empty params) and `buildLabelBodyEnds` (scans forward for the body's `jump :end`, stores the resume-after `j + 1` or `stmts.size` if no end); a mutable `callStack` in `run()`; two-branch `Stmt.Jump` (`:end` returns; anything else resolves, optionally pushes a frame after arity + depth checks, then unconditionally jumps). Runtime errors: `arity mismatch on ':<name>': expected <n> args, got <m>`, `call depth exceeded <n> (recursive label calls)`, `jump :end with no active call frame`. See `catoscript-reference.md` §5.3 + §5.4 for the user-facing description. The devplan §11 Tier-5 example was reordered to "call before body" to match the shipped semantics; `samples/misc/tier5-demo.cato` ships as the runnable Tier 5 demonstration.
+>
+> **Surface supersession.** Phase B.6's *mechanism* (call stack, depth guard, caller-variable restore) is the foundation Phase B.8 builds on. Phase B.6's *surface* (`jump :NAME args` for calls, `jump :end` for return, `:NAME $a $b` for parameter-bearing labels) is the interim shape that B.8 retires in favor of `name(args)` / `return` / `basket name $a $b ... end_basket`. **Phase B.8 is the source of truth for the Tier 5 call/return shape going forward** — this entry is the record of the plumbing that shipped. The §11 Tier-5 example below remains the "call before body" B.6 form; the B.8 form is at `samples/misc/basket-explanation.cato`.
 
 - [x] Extend `CompareOp` enum to include `GT`, `GTE`, `LTE`, `NEQ` alongside the existing `LT` and `EQ` *(shipped as part of the parser+interpreter work tied to samples/3.cato's `>` workaround; one commit, no new mechanism)*
 - [x] Parser `parseCompare`: recognize the four new operators with `<=` / `>=` checked before `<` / `>` so the longer substrings win; gate `parseExpr` on the full operator set
@@ -392,6 +394,107 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] No bump; ships ahead of Phase G as the foundation for the static-check command there
 
 > Phase B.7 ships the AST-emit half of the user's "real compiler" idea. The static-check half ("refuse to emit if the analyzer finds errors") is Phase G's `cato compile` checkbox above; it cannot ship until `CatoScriptAnalyzer` lands. Sequencing matters: B.7 throws away no code — Phase G's analyzer pass slots in on top of the existing emit.
+
+### Phase B.8 · Replace label-based functions with `basket` / `return` / `()`
+
+**Why:** Phase B.6 shipped "a function is a labeled snippet with inputs" using `jump :NAME args` to call and `jump :end` to return. Both shapes read as jargon, not plain English — and §11 commits to plain reading. Phase B.8 retires those two special cases and ships three readable keywords plus `()` sugar, so a function reads top-to-bottom as natural language.
+
+**Before:**
+```catoscript
+jump :GREET "mochi"
+:GREET $name
+  meow "hello, $name"
+  jump :end
+```
+
+**After:**
+```catoscript
+greet("mochi")
+basket greet $name
+  meow "hello, $name"
+  return
+end_basket
+```
+
+**Coexistence with labels.** `:NAME` labels survive as naked-goto / `purr_at` / `hiss_at` targets and as fall-through markers — they just can no longer carry params or bodies. `jump :NAME` (no args, no parens) still works as today; `jump :NAME args` is gone (use `name(args)`); `jump :end` is gone (use `return`). The Tier 3 demos (`1-4.cato`, `grade.cato`) keep working unchanged because they use only naked goto. The `:` is a label-specific affordance, not a generic identifier prefix — baskets don't use it.
+
+**Worked example — line-by-line comments** (canonical copy lives at `samples/misc/basket-explanation.cato`):
+
+```catoscript
+
+# ---- simple explanation ----
+
+greet("mochi")
+# "mochi" argument calls the basket named greet, which is defined below
+
+  basket greet $name
+# basket named greet starts
+
+    meow "hello, $name"
+# the cat says hello to the name passed in, "mochi"
+
+    return
+# done with basket, go back to where you were before jumping in. BASKETS ONLY RUN WHEN CALLED
+
+  end_basket
+# basket named greet ends
+
+  greet("luna")
+# "luna" argument calls the basket named greet
+
+  # Output:
+  # hello, mochi
+  # hello, luna
+
+
+# ---- deeper explanation of the same code ----
+
+
+greet("mochi")
+# calls greet, the basket, with mochi as the arg
+
+  basket greet $name
+# basket named greet starts, $name is the arg, call determines the value of $name
+
+    meow "hello, $name"
+# prints "hello, mochi" — $name was bound to "mochi" by the call
+
+    return
+# return back to line after greet. BASKETS ONLY RUN WHEN CALLED
+
+  end_basket
+# basket named greet ends
+
+  greet("luna")
+# calls greet, the basket, with luna as the arg
+
+  # Output:
+  # hello, mochi
+  # hello, luna
+```
+
+This file is the canonical reference shape for the rewrite of `samples/misc/tier5-demo.cato` and the test scripts in `BasketInterpreterTest`.
+
+- [ ] Add `Stmt.Basket(name: String, params: List<String>, body: List<Stmt>, pos: SourcePos)` to AST
+- [ ] Add `Stmt.Return(pos: SourcePos)` to AST
+- [ ] Add `Stmt.Call(name: String, args: List<Expr>, pos: SourcePos)` to AST (the call site — a new statement shape)
+- [ ] Parser: `basket name $a $b` opens a body; statements collected into `Basket.body` until `end_basket` closes it
+- [ ] Parser: `return` recognized as a no-arg statement
+- [ ] Parser: `name(arg, arg, ...)` parsed as `Stmt.Call` — disambiguate by "line starts with identifier followed by `(`"; runtime arity check catches misspellings
+- [ ] Parser: reject basket names that match any reserved keyword (`meow`, `set`, `sniff`, `purr_at`, `hiss_at`, `jump`, `include`, `basket`, `return`, `end_basket`) — `ParseError("basket name '<n>' is a reserved keyword")`
+- [ ] Interpreter: build `baskets: Map<String, BasketInfo>` (name → body-start ip + params list) once at `run()` start
+- [ ] Interpreter: `Stmt.Basket` is a no-op at runtime — bodies run only when called
+- [ ] Interpreter: `Stmt.Call` validates arity against basket params, checks `maxCallDepth`, pushes `CallFrame(returnIp = bodyEndIp, callerVariables = variables.toMap())`, binds args to params, jumps to body start
+- [ ] Interpreter: `Stmt.Return` pops current frame, restores caller's variables, resumes at `frame.returnIp` — throws `return with no active call frame` if stack is empty
+- [ ] Remove the two-branch handler from `Stmt.Jump`: drop the `stmt.label == "end"` branch (return path → `Stmt.Return`); drop the args/params call branch (call path → `Stmt.Call`); `jump` becomes the unconditional goto only (no args, target has no params)
+- [ ] Interpreter: `Stmt.Jump` rejects targets that are baskets, not labels — `RuntimeErrorException("jump :<name> targets a basket, not a label — use <name>(args) instead")`. Keeps `jump` = label-goto and `name(args)` = basket-call strictly separated.
+- [ ] Tests: new `BasketInterpreterTest` covers declare / single-arg call / multi-arg call / return / arity mismatch / depth exceeded / naked-jump-still-goto / basket with no params
+- [ ] Rewrite `samples/misc/tier5-demo.cato` to use the new shape (drop the `jump`-as-call and `jump`-as-return examples; the four sections become four `basket` examples + one naked-goto example). Pedagogical draft with detailed comments already lives at `samples/misc/basket-explanation.cato` — use it as the reference for the new shape and comment style.
+- [ ] Audit other samples (`samples/misc/1-4.cato`, `samples/misc/grade.cato`, `samples/include-demo-v1/main.cato`) for `jump :NAME args` or `jump :end` uses; migrate naked `jump :NAME` gotos to remain unchanged, rewrite call/return uses
+- [ ] All existing tests stay green (or migrate to the new shape; `LabelParamsInterpreterTest` is renamed/replaced by `BasketInterpreterTest`)
+- [ ] Editor: `editor/syntaxes/catoscript.tmLanguage.json` adds `basket`, `end_basket`, `return` to the keyword set; the mid-line label-ref grammar rule is updated for `()` call punctuation
+- [ ] Bump to `0.3.2-LOCAL`, publish *(breaking change to the call form — any script using `jump :NAME args` or `jump :end` must rewrite; naked `jump :NAME` gotos keep working unchanged)*
+- [ ] Update docs accordingly: `catoscript-reference.md` §3 (commands table — drop the Jump two-branch handler description), §5 (replace Labels-and-jumps section with Baskets-and-calls), §11 (drop 11.1 `:end` return opcode and 11.3 label parameters live; add `return` requires active frame and `()` is the call site); update `catoscript-reference.md` §13.2 to remove `()` from "Future syntax" (now shipped); update this devplan's Phase B.6 entry to point at B.8 as the source of truth for Tier 5
 
 ### Phase I · Editor support (VS Code now, IntelliJ later)
 

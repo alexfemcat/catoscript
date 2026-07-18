@@ -1,0 +1,32 @@
+
+# THIS IS AN EXPLANATION AND WILL NOT RUN LIKE A NORMAL CATO FILE
+
+
+greet("mochi") # "mochi" argument calls the basket named greet, which is defined below
+  basket greet $name #basket named greet starts 
+    meow "hello, $name" # the cat says hello to the name passed in, "mochi"
+    return # done with basket, go back to where you were before jumping in. BASKETS ONLY RUN WHEN CALLED
+  end_basket #basket named greet ends
+
+  greet("luna") # "luna" argument calls the basket named greet
+
+  # Output:
+  # hello, mochi
+  # hello, luna
+
+
+# deeper explanation of the above code:
+
+
+greet("mochi") # calls greet, the basket, with mochi as the arg
+  basket greet $name # basket named greet starts, $name is the arg, call determines the value of $name
+    meow "hello, $name" # prints "hello, mochi" — $name was bound to "mochi" by the call
+    return # return back to line after greet. BASKETS ONLY RUN WHEN CALLED
+  end_basket #basket named greet ends
+
+  greet("luna") # calls greet, the basket, with luna as the arg
+
+  # Output:
+  # hello, mochi
+  # hello, luna
+
