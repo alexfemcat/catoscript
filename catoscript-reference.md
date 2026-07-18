@@ -15,15 +15,16 @@
 | Interpreter loop | **shipped** | `Interpreter.kt` |
 | `meow`, `set`, `sniff`, `purr_at`, `hiss_at`, `jump` | **shipped** | exactly these six commands |
 | `include` (parser-only inlining) | **shipped** | `RealParser.kt` line 70 |
-| Labels (`:NAME`) | **shipped** | case-sensitive, no parameters |
+| Labels (`:NAME`) | **shipped** | case-sensitive; parameter list parsed (`:NAME $a $b`) and bound at runtime — see §5 |
 | Comments (`# ...`) | **shipped** | whole-line only, not trailing |
 | Six-way comparisons (`<`, `<=`, `==`, `!=`, `>=`, `>`) | **shipped** | `Expr.Compare` + `CompareOp` |
 | String interpolation (`"$var"`) and `\$` escape | **shipped** | `parseString` |
 | CatoHost SPI (14 methods) | **declared** | only `print` is currently called by the interpreter |
 | `NullHost` / `ConsoleHost` | **shipped** | `runtime/` |
 | Step budget (`maxTotalSteps`) | **shipped** | default 1,000,000 |
+| Call depth budget (`maxCallDepth`) | **shipped** | default 64, enforced on `jump :NAME args` calls — see §5.4 |
 | `maxStepsPerTick`, `seed` policy fields | **declared, never read** | scaffolding for future hosts |
-| Label parameters (`:GREET $name`, `jump :GREET arg`) | **planned** | Phase B.6 |
+| Label parameters (`:GREET $name`, `jump :GREET arg`) | **shipped** | label params + call stack + `jump :end` return opcode + `maxCallDepth=64`. Phase B.6 end-to-end. See §5.4. |
 | `for` / `end_for` / `[]` / list literals | **planned** | §5.9 |
 | `()` call punctuation | **planned** | §5.9 |
 | Bracket operators (`[is]`, `[over]`, `[first]`, `[sort]`, etc.) | **planned** | §14 |
@@ -56,8 +57,8 @@ src/main/kotlin/com/catoscript/
 │   ├── Expr.kt                         # sealed Expr (4 implementations) + CompareOp enum + StrPart
 │   └── SourcePos.kt                    # SourcePos(line, column)
 ├── interpreter/
-│   ├── Interpreter.kt                  # the loop. 90-ish lines. one Int ip, no call stack.
-│   ├── InterpreterPolicy.kt            # maxStepsPerTick / maxTotalSteps / seed
+│   ├── Interpreter.kt                  # the loop. one Int ip, mutable call stack for label params.
+│   ├── InterpreterPolicy.kt            # maxStepsPerTick / maxTotalSteps / maxCallDepth(64) / seed
 │   ├── InterpreterResult.kt            # sealed Completed | BudgetExceeded | RuntimeError
 │   ├── ExecutionLimit.kt               # ExecutionLimitReached exception
 │   ├── ScriptContext.kt                # SCAFFOLD — not used by Interpreter.run
@@ -73,6 +74,7 @@ src/test/kotlin/com/catoscript/
 ├── parser/RealParserTest.kt            # 16 tests covering every parser shape + 3 include tests
 ├── parser/AstEmitTest.kt               # 1 eyeball smoke test (no assertions)
 ├── interpreter/InterpreterTest.kt      # 11 tests including `RecordingHost`
+├── interpreter/LabelParamsInterpreterTest.kt  # 6 tests: bind, 2-params, return, arity, recursion, naked
 ├── interpreter/ScriptContextTest.kt    # data-class equality only — ScriptContext is unused
 ├── interpreter/ThreadHandleTest.kt     # data-class equality only — ThreadHandle is unused
 └── runtime/NullHostTest.kt             # verifies silent defaults
@@ -101,14 +103,14 @@ The parser recognizes **exactly seven keywords**. Anything else is `ParseError("
 | `sniff <expr>` | `Stmt.Sniff(cond, pos)` | `eval(cond)` → must be `Value.Bool`, stored in `lastSniff`, then `ip++` | `RuntimeErrorException("sniff expects a boolean, got <v>")` if result is not Bool |
 | `purr_at :LABEL` | `Stmt.PurrAt(label, pos)` | If `lastSniff?.b == true`: `ip = labels[label]`. Else `ip++` | `RuntimeErrorException("purr_at has no prior sniff")` if no sniff yet; `RuntimeErrorException("unknown label ':<name>'")` if label missing |
 | `hiss_at :LABEL` | `Stmt.HissAt(label, pos)` | Mirror of `purr_at`. Jump if `lastSniff?.b == false` | `RuntimeErrorException("hiss_at has no prior sniff")` if no sniff yet; `RuntimeErrorException("unknown label ':<name>'")` if label missing |
-| `jump :LABEL` | `Stmt.Jump(label, pos)` | Unconditional `ip = labels[label]`. **Does not consult `lastSniff`.** | `RuntimeErrorException("unknown label ':<name>'")` if label missing |
+| `jump :LABEL` | `Stmt.Jump(label, args: List<Expr> = emptyList(), pos)` | Two-branch handler. **`stmt.label == "end"` (case-sensitive lowercase)** with a call frame on the stack → pop the frame, restore the caller's pre-call `variables` snapshot, set `ip = frame.returnIp`. **`jump :end` with no active call frame** → throw `jump :end with no active call frame`. **Any other label** → resolve `targetIp = labels[label]`; if `stmt.args.isNotEmpty() || labelParams[label].isNotEmpty()` (i.e., a function call): validate `stmt.args.size == labelParams[label].size` else throw `arity mismatch on ':<name>': expected <n> args, got <m>`; check `callStack.size < policy.maxCallDepth` else throw `call depth exceeded <n> (recursive label calls)`; push `CallFrame(returnIp = labelBodyEnds[label] ?: ip+1, callerVariables = variables.toMap())`; bind params via `for ((paramName, argExpr) in paramsList.zip(args)) variables[paramName] = eval(argExpr, variables)`. Finally `ip = targetIp` whether or not a frame was pushed (naked jumps to parameterless labels remain gotos). Does not consult `lastSniff`. See §5.3 (`:end` return), §5.4 (call stack). | `RuntimeErrorException("unknown label ':<name>'")`; `RuntimeErrorException("arity mismatch on ':<name>': expected <n> args, got <m>")`; `RuntimeErrorException("call depth exceeded <n> (recursive label calls)")`; `RuntimeErrorException("jump :end with no active call frame")` |
 | `include "path.cato"` | (no AST node — parser inlines) | Resolves path against `basePath`, recursively parses, wraps the inlined statements with `Jump __include_skip_N` ... `Label __include_skip_N` | `ParseError` variants: missing path quoting, missing file, cyclic include, unresolvable path |
 
 **Implicit no-op commands** (recognized by the parser, do nothing at runtime):
 
 | Form | AST | Runtime |
 |---|---|---|
-| `:NAME` | `Stmt.Label(name, pos)` | Records `name → ip` in the label map at `run()` start. Otherwise `ip++`. |
+| `:NAME` / `:NAME $a $b ...` | `Stmt.Label(name, params: List<String> = emptyList(), pos)` | Records `name → ip` in the label map at `run()` start. Otherwise `ip++`. Params are parsed (tokens after the name must start with `$` or the parser throws `ParseError("label params must start with $: '<token>'")`) and bound at the call site when `jump :NAME args...` is executed — see §5.4. |
 | `# comment text` | `Stmt.Comment(text, pos)` | `ip++`. The comment text is never inspected at runtime. |
 | blank line | `Stmt.Empty` (singleton) | `ip++`. The only `Stmt` without a `pos` field. |
 
@@ -218,58 +220,126 @@ jump :END                  # RuntimeError: unknown label ':END' (the map has "en
 
 **Always match case exactly between the label declaration and the label reference.**
 
-### 5.3 `jump :end` has NO special meaning
+### 5.3 `jump :end` IS the return opcode (case-sensitive lowercase)
 
-This is the most common hallucination. `jump :end` is exactly equivalent to `jump :DEAD` or `jump :ANY_OTHER_LABEL`. The interpreter does a plain map lookup. The substring `end` has no special status.
+`jump :end` has a special status **when a call frame is active** (i.e., the most recent `jump :NAME args...` pushed a frame — see §5.4). In that case `jump :end` is the return opcode: pop the top `CallFrame`, restore the caller's pre-call `variables` snapshot, and resume at `frame.returnIp`.
+
+The label name is case-sensitive lowercase exactly: `jump :end` returns, `jump :END` does not (it is a regular label lookup, which throws `unknown label ':END'` unless a `:END` label exists). The substring `end` is only special as a literal label name equal to `"end"`.
 
 ```catoscript
-:SAY_HELLO
-  meow "hello!"
-  jump :end                # looks up "end" in the label map
+jump :DRINK "milk"                     # call: bind "milk" → $beverage, run body, return
+meow "main continues"                  # runs after DRINK returns
+jump :DRINK "tea"                      # second call, also returns
+meow "after tea"                       # runs after the second return
 
-jump :SAY_HELLO            # never reached if no :end label exists
-:END                       # declares "END" — does NOT match "end"
+:DRINK $beverage                       # Label("DRINK", params = ["beverage"])
+  meow "slurp $beverage"
+  jump :end                            # return — pops the frame for :DRINK
 ```
 
-If no `:end` label exists, `jump :end` throws `RuntimeErrorException("unknown label ':end'")`. The script does not loop forever and does not exit cleanly.
-
-### 5.4 There is no call stack · labels cannot return to caller
-
-Every jump teleports `ip` to the target. **No caller is recorded.** This means:
-
-```catoscript
-:SAY_HELLO
-  meow "hello!"
-  jump :end                # teleports to wherever :end lives. does not "return".
-
-jump :SAY_HELLO            # dead code (jumped past)
-meow "between"
-jump :SAY_HELLO            # dead code
-:END                       # where :end lives — at the very end → script exits
+Output:
+```
+slurp milk
+main continues
+slurp tea
+after tea
 ```
 
-Output: just `hello!`. The "between" meow never runs.
+**`jump :end` with no active call frame** throws `RuntimeErrorException("jump :end with no active call frame")`. This is the only way to misuse it — at top-level (no preceding labeled function call) `jump :end` is a runtime error.
 
-**There is no `def` keyword, no function-call mechanism, no parameters.** The "function called from multiple places, each call returns" pattern is exactly what Phase B.6 (label parameters) ships. Until then, the pattern cannot be expressed in valid catoscript.
+Note that `:end` and `:END` are still two different labels per §5.2. The two are now distinct in one more way: only the lowercase spelling, in a `jump`, with an active frame, returns. Everything else is a regular label lookup.
 
-### 5.5 Labels with parameters don't work yet
+### 5.4 Label parameters · binding, call stack, and `jump :end`
+
+This is now the core of how catoscript calls labeled snippets. The AST shape, parser, and runtime all ship together (Phase B.6, end-to-end).
+
+**The four building blocks (all in `Interpreter.kt`):**
+
+- `private data class CallFrame(val returnIp: Int, val callerVariables: Map<String, Value>)` — what gets pushed when a call happens. `returnIp` is the ip to resume at when `jump :end` pops the frame; `callerVariables` is the caller's pre-call variable snapshot, restored in full on return (variables are call-scoped, not block-scoped — see "naked jumps" below).
+- `val labelParams = buildLabelParamsMap(program)` — built once at the start of `run()`. `Map<String, List<String>>` from label name to its declared params. Only labels with a non-empty `params` list appear in the map (parameterless labels are not function calls; see below).
+- `val labelBodyEnds = buildLabelBodyEnds(program)` — `Map<String, Int>` from label name to the ip *just past* the body's `jump :end` (the resume point when the function returns). For each parameterized label, scans forward for the first `jump :end` after the label definition; the body's resume-after position is `j + 1`, or `program.stmts.size` if no `jump :end` exists in the body.
+- `val callStack = mutableListOf<CallFrame>()` — the actual stack. Pushed on call, popped on return.
+
+**Two-branch `jump` handler (paraphrased from `Interpreter.kt:85-110`):**
+
+```kotlin
+is Stmt.Jump -> {
+    if (stmt.label == "end") {                                // the return opcode
+        val frame = callStack.removeLastOrNull()
+            ?: throw RuntimeErrorException("jump :end with no active call frame")
+        variables.clear()
+        variables.putAll(frame.callerVariables)
+        ip = frame.returnIp
+    } else {
+        val targetIp = labels[stmt.label]
+            ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
+        val paramsList = labelParams[stmt.label] ?: emptyList()
+        if (stmt.args.isNotEmpty() || paramsList.isNotEmpty()) {
+            if (stmt.args.size != paramsList.size)
+                throw RuntimeErrorException("arity mismatch on ':${stmt.label}': expected ${paramsList.size} args, got ${stmt.args.size}")
+            if (callStack.size >= policy.maxCallDepth)
+                throw RuntimeErrorException("call depth exceeded ${policy.maxCallDepth} (recursive label calls)")
+            callStack.add(CallFrame(
+                returnIp = labelBodyEnds[stmt.label] ?: (ip + 1),
+                callerVariables = variables.toMap(),
+            ))
+            for ((paramName, argExpr) in paramsList.zip(stmt.args))
+                variables[paramName] = eval(argExpr, variables)
+        }
+        ip = targetIp                                         // naked jump lands here too
+    }
+}
+```
+
+**Three things to know about how this behaves:**
+
+1. **"Function call" vs "naked jump" is decided by the label.** If the *target label* declares params (or the call site supplies args), it is a function call: arity is checked, depth is checked, a frame is pushed, params are bound. If the target label has no params and the call site supplies no args, it is a regular goto — no frame is pushed, the caller's variable map is shared with the labeled body. So `:SETX` (no params) jumped to with `jump :SETX` lets the body `set` into the caller's scope; the body's `meow` after the jump sees the new value. A naked jump to a parameterless label that contains `set $x 5` does mutate the caller.
+2. **`returnIp` skips the body tail.** Because `labelBodyEnds[label]` points one past the body's `jump :end`, when `jump :end` returns the labeled body is *unreachable* again — control resumes immediately after the body's return, which is the position after the body's terminal `jump :end`. This is why `meow "after"` at top-level runs after a labeled function returns: the caller is positioned past the call, the body's resume-after position is also past the body's `jump :end`, and both are still where they were.
+3. **Recursion is bounded by `policy.maxCallDepth` (default 64).** Each pushed frame counts; once `callStack.size == maxCallDepth`, the next call throws `call depth exceeded <n> (recursive label calls)`. The recursion guard exists to keep the step budget honest for runaway recursion.
+
+**Worked example:**
 
 ```catoscript
-:DRINK $beverage           # parses as Label(name = "DRINK $beverage")
+jump :DRINK "milk"
+jump :DRINK "tea"
+meow "done"
+
+:DRINK $beverage
   meow "slurp $beverage"
   jump :end
-
-jump :DRINK "milk"         # parses as Jump(label = "DRINK \"milk\"") — no args
 ```
 
-The parser does not treat `$name` after the label as a parameter declaration. It treats the whole line as one label name. Phase B.6 fixes this by:
+- `ip=0` → `Jump("DRINK", [Expr.Str("milk")])`. Not `:end`, label is `"DRINK"`, target resolves, `paramsList = ["beverage"]`, `args.size = 1 == params.size`. `callStack` empty so depth check passes. Push `CallFrame(returnIp = ?, callerVariables = {})`. `labelBodyEnds["DRINK"]` is the ip one past `jump :end` inside the body. Bind `$beverage = "milk"`. `ip` → body.
+- body runs `meow "slurp milk"` then `Jump("end")`. Pop frame, restore empty caller vars, `ip = frame.returnIp` (position immediately after the body's `jump :end`).
+- caller resumes at `ip = 1` → `Jump("DRINK", [Expr.Str("tea")])`. Same flow with `$beverage = "tea"`.
+- then `meow "done"` → end of program → `Completed`.
 
-1. Changing `Stmt.Label` to `Label(name, params: List<String>, pos)`.
-2. Changing `Stmt.Jump` to `Jump(label, args: List<Expr>, pos)`.
-3. Adding a call stack to the interpreter.
-4. Making `jump :end` pop the call stack and return to caller.
+Output:
+```
+slurp milk
+slurp tea
+done
+```
 
-Until B.6 lands, do not write `:DRINK $beverage` or `jump :DRINK "milk"`. The parser accepts the syntax but the runtime will crash on undefined `$beverage` (or fail at lookup time).
+**Known limitation — args still cannot contain internal whitespace.** `jump :GREET "two words"` fails at `parseExpr` for the trailing `words"` because args are tokenized on whitespace. Pass strings through a variable: `set $msg "two words"` then `jump :GREET $msg`. (The same parser gap affects all `Expr` args and is unchanged from the parser-only era.)
+
+**Known shape constraint — "call before body" pattern.** Because labels are no-ops at runtime, the body sits where the source puts it. If a script writes the body *before* the call (the devplan's own §11 Tier 5 example does this), the top-level execution falls *into* the body and `$beverage` is undefined. The body must come *after* the call, or be reordered to put the call first. The devplan example uses the legacy body-before-call ordering and would crash on the first `meow`; see "Tier-5 example mismatch" in the §11 devplan note (`catoscript-devplan.md` §6 Phase B.6 shipped status).
+
+### 5.5 Label parameters · end-to-end summary
+
+Phase B.6 ships. The complete shape:
+
+- `Stmt.Label(name, params: List<String>, pos)` — declared params parsed (each must start with `$`, else `ParseError("label params must start with $: '<token>'")`).
+- `Stmt.Jump(label, args: List<Expr>, pos)` — args are tokenized on whitespace, then each passed through `parseExpr` (string literals, `$var` references, numbers, comparisons).
+- `Interpreter.run()` maintains `callStack: MutableList<CallFrame>`, plus the `labelParams` and `labelBodyEnds` lookup maps built once at `run()` start.
+- `jump :END` (any non-`end` label) with args → validate arity → check depth → push frame → bind params → jump.
+- `jump :END` (any non-`end` label) without args to a parameterless label → plain goto, no frame.
+- `jump :end` → pop frame, restore caller's variables, resume at `frame.returnIp`. Throws `jump :end with no active call frame` if the stack is empty.
+- Errors: `arity mismatch on ':<name>': expected <n> args, got <m>` and `call depth exceeded <n> (recursive label calls)`.
+
+Tests: `LabelParamsInterpreterTest.kt` has six cases — bind at call site, two-params in declaration order, return resumes caller, arity mismatch throws, recursion past `maxCallDepth` throws, naked label call shares caller scope. All pass under `./gradlew test`.
+
+The remaining gap is the args-cannot-contain-internal-whitespace parser limit (pre-existing, not Phase B.6 work).
 
 ### 5.6 Duplicate labels throw at runtime
 
@@ -301,13 +371,12 @@ jump :NOWHERE               # RuntimeError: unknown label ':NOWHERE'
 
 ### 5.9 What works today for "call a labeled block from many places"
 
-Without call-stack support, the only repeatable patterns are:
+Phase B.6 ships, so the full set works today:
 
-1. **Conditional branch (if/else made of labels).** `sniff` then `purr_at :TRUE_BRANCH` / `hiss_at :FALSE_BRANCH`. Each branch runs at most once per script.
-2. **Unrolled body.** If you want the body to run three times, write three copies inline.
-3. **Skip pattern.** `jump :SKIP` past a block that should not run. The block runs zero or one time depending on whether you jumped past it.
-
-The "called from many places, returns to caller" pattern is B.6 work.
+1. **Labeled function with inputs.** `:GREET $name ... jump :end` then `jump :GREET "mochi"` — binds the arg, runs the body, returns to the caller (see §5.4). Multiple call sites, one body.
+2. **Naked goto (no params, no args).** `jump :SKIP` past a block that should not run, or into a block that mutates the caller's scope via `set` (no frame pushed, see §5.4).
+3. **Conditional branch (if/else made of labels).** `sniff` then `purr_at :TRUE_BRANCH` / `hiss_at :FALSE_BRANCH`. Each branch runs at most once per script.
+4. **Unrolled body.** If you want the body to run three times without params, write three copies inline (or use a parameterized label called three times).
 
 ---
 
@@ -321,8 +390,8 @@ sealed interface Stmt {
     data class Sniff(val cond: Expr, val pos: SourcePos) : Stmt
     data class PurrAt(val label: String, val pos: SourcePos) : Stmt
     data class HissAt(val label: String, val pos: SourcePos) : Stmt
-    data class Jump(val label: String, val pos: SourcePos) : Stmt
-    data class Label(val name: String, val pos: SourcePos) : Stmt
+    data class Jump(val label: String, val args: List<Expr> = emptyList(), val pos: SourcePos) : Stmt
+    data class Label(val name: String, val params: List<String> = emptyList(), val pos: SourcePos) : Stmt
     data class Comment(val text: String, val pos: SourcePos) : Stmt
     data object Empty : Stmt                       // the only Stmt without a pos field
 }
@@ -356,9 +425,12 @@ data class SourcePos(val line: Int, val column: Int) {
 ```kotlin
 fun run(program: Program): InterpreterResult {
     val labels = buildLabelMap(program)         // throws on duplicate labels
+    val labelParams = buildLabelParamsMap(program)   // only labels with non-empty params
+    val labelBodyEnds = buildLabelBodyEnds(program)  // ip one-past body jump :end, per parameterized label
     val variables = mutableMapOf<String, Value>()
+    val callStack = mutableListOf<CallFrame>()        // pushed on labeled call, popped on jump :end
     var lastSniff: Value.Bool? = null
-    var ip = 0                                   // ONE Int. No call stack.
+    var ip = 0                                        // ONE Int. + a call stack for label params.
     while (ip < program.stmts.size) {
         if (stepsConsumed >= policy.maxTotalSteps) throw ExecutionLimitReached(stepsConsumed)
         when (program.stmts[ip]) {
@@ -368,7 +440,23 @@ fun run(program: Program): InterpreterResult {
             is Stmt.Sniff -> { lastSniff = eval(...).also { if (it !is Value.Bool) throw ... }; ip++ }
             is Stmt.PurrAt -> { if (lastSniff?.b == true) ip = labels[...] ?: throw ...; else ip++ }
             is Stmt.HissAt -> { if (lastSniff?.b == false) ip = labels[...] ?: throw ...; else ip++ }
-            is Stmt.Jump -> { ip = labels[...] ?: throw ... }
+            is Stmt.Jump -> {
+                if (stmt.label == "end") {
+                    val frame = callStack.removeLastOrNull()
+                        ?: throw RuntimeErrorException("jump :end with no active call frame")
+                    variables.clear(); variables.putAll(frame.callerVariables); ip = frame.returnIp
+                } else {
+                    val targetIp = labels[stmt.label] ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
+                    val paramsList = labelParams[stmt.label] ?: emptyList()
+                    if (stmt.args.isNotEmpty() || paramsList.isNotEmpty()) {
+                        if (stmt.args.size != paramsList.size) throw RuntimeErrorException("arity mismatch ...")
+                        if (callStack.size >= policy.maxCallDepth) throw RuntimeErrorException("call depth exceeded ${policy.maxCallDepth} (recursive label calls)")
+                        callStack.add(CallFrame(returnIp = labelBodyEnds[stmt.label] ?: (ip + 1), callerVariables = variables.toMap()))
+                        for ((paramName, argExpr) in paramsList.zip(stmt.args)) variables[paramName] = eval(argExpr, variables)
+                    }
+                    ip = targetIp
+                }
+            }
         }
         stepsConsumed++                          // every iteration costs one step, including Empty/Comment/Label
     }
@@ -378,10 +466,11 @@ fun run(program: Program): InterpreterResult {
 
 Key invariants:
 
-- **One `ip` only.** No call stack. No return-to-caller.
-- **One variable map per program.** No scoping. No globals vs locals.
+- **One `ip` only.** Plus a call stack (`MutableList<CallFrame>`) for labeled function calls. Naked jumps (no args, no params) do not push.
+- **One variable map per program, restored on return.** Variables are call-scoped: when `jump :end` pops a frame, the caller's pre-call snapshot (`frame.callerVariables`) replaces the current map entirely. There is no block scope, no global vs local.
 - **`lastSniff` is a single-slot global.** There is no stack of `sniff` results.
 - **Every loop iteration counts as one step** toward `maxTotalSteps` (default 1,000,000).
+- **Every `jump :NAME args...` call counts one** toward `policy.maxCallDepth` (default 64) — checked at the point of push.
 - **`maxStepsPerTick` and `seed` are declared but never read.**
 - **Only `host.print` is wired up today.** All 13 other CatoHost methods are interface declarations with implementations in `NullHost`/`ConsoleHost` but no interpreter call site.
 
@@ -469,11 +558,13 @@ sealed interface Value {
 data class InterpreterPolicy(
     val maxStepsPerTick: Int = 100,        // declared, never read
     val maxTotalSteps: Long = 1_000_000,  // read once per loop iteration
+    val maxCallDepth: Int = 64,            // read once per call-frame push on `jump :NAME args...`
     val seed: Long? = null                // declared, never read
 )
 ```
 
-- The check is at the top of every iteration: `if (stepsConsumed >= policy.maxTotalSteps) throw ExecutionLimitReached(stepsConsumed)`.
+- The total-step check is at the top of every iteration: `if (stepsConsumed >= policy.maxTotalSteps) throw ExecutionLimitReached(stepsConsumed)`.
+- The call-depth check is once per `Jump` that is a function call: `if (callStack.size >= policy.maxCallDepth) throw RuntimeErrorException("call depth exceeded <n> (recursive label calls)")` (default 64). Tests can pin a tighter depth (e.g., `InterpreterPolicy(maxCallDepth = 4)`) to exercise the guard cheaply.
 - `stepsConsumed` increments once per loop iteration regardless of statement type.
 - `ExecutionLimitReached` is caught and returned as `InterpreterResult.BudgetExceeded(stepsConsumed)`.
 - `maxStepsPerTick` is a knob for future per-frame hosts (per `InterpreterPolicy.kt` line 6 comment); the standalone REPL doesn't have frames.
@@ -486,17 +577,17 @@ data class InterpreterPolicy(
 
 Each item below is a real failure mode an AI assistant will produce without checking this section.
 
-### 11.1 `jump :end` does NOT mean "return to caller"
+### 11.1 `jump :end` IS the return opcode (when a call frame is active)
 
-`jump :end` is a regular label lookup. There is no special handling of the substring `end`. If no `:end` label exists, the script crashes. If `:end` exists at the bottom of the script, `jump :end` exits the script. **There is no call stack and no implicit return.**
+`jump :end` is not a regular label lookup. When a call frame is active (i.e., the most recent `jump :NAME args...` pushed a frame — see §5.4), `jump :end` pops the frame, restores the caller's pre-call `variables` snapshot, and resumes at `frame.returnIp`. **This is the only way to use `jump :end`.** At top-level (no preceding labeled function call), `jump :end` throws `RuntimeErrorException("jump :end with no active call frame")` — it is a runtime error, not a silent no-op. The `:end` lookup is case-sensitive lowercase: `jump :END` is a regular label lookup that throws unless a `:END` label exists.
 
 ### 11.2 Labels are case-sensitive
 
 `:end` and `:END` are different labels. Match case exactly. The parser does not fold case.
 
-### 11.3 Label parameters don't work yet
+### 11.3 Label parameters are live (Phase B.6 shipped)
 
-`:GREET $name` is parsed as `Label("GREET $name")` — a single label name with a literal `$` in it. `jump :GREET "mochi"` is parsed as `Jump("GREET \"mochi\"")`. Neither has any parameter mechanism. The call-stack + label-params work is Phase B.6.
+`:GREET $name` parses as `Label("GREET", params = ["name"])`, and `jump :GREET "mochi"` parses as `Jump("GREET", args = [Expr.Str("mochi")])`. The runtime binds: on call, args are evaluated in the caller's scope and assigned positionally into the label's params; on `jump :end` inside the body, the caller's pre-call variable snapshot is restored and execution resumes at `frame.returnIp`. There is a call stack (per `MutableList<CallFrame>` in `Interpreter.run()`), and `jump :end` *is* the return opcode when a frame is active. The default recursion guard is `policy.maxCallDepth = 64`; the only labels that push a frame are those with a non-empty `params` list (or those called with args). Naked jumps to parameterless labels remain gotos. See §5.3 (`:end`) and §5.4 (call stack + binding).
 
 ### 11.4 No loops
 
@@ -510,9 +601,9 @@ No `+`, `-`, `*`, `/`, `%`. No negative literals. No floats. `Expr.Num` is `Long
 
 `[]` is not in the parser. `for ... in ...` is not in the parser. There is no `set $xs [...]` shape. Tier 6 (§5.9) is the planned landing zone.
 
-### 11.7 No function-call syntax
+### 11.7 No `()` function-call sugar; use `jump :NAME args` instead
 
-`()` is not in the parser. `greet("mochi")` would throw `cannot parse expression 'greet("mochi")'`. Tier 5 with `()` punctuation ships via §5.9 + B.6.
+`()` is not in the parser as a function-call punctuation. `greet("mochi")` would throw `cannot parse expression 'greet("mochi")'`, and `:GREET($name)` would throw `unknown command ':GREET($name)'`. The underlying mechanism it would sugar — label params + call stack — shipped in Phase B.6. So `jump :GREET "mochi"` (with `:GREET $name ... jump :end` defined somewhere in the script) works today. The Tier 5 `()` syntax is a separate, still-pending landing per §13.2.4 (under the "Future syntax" header).
 
 ### 11.8 No `std.*` namespace
 
@@ -693,27 +784,21 @@ Per devplan §2 audit, Phase C, Tier 7. These are pure interpreter work or thin 
 
 These change how a script reads, not just which commands exist.
 
-#### Label parameters + call stack (Phase B.6, Tier 5)
+#### Label parameters + call stack — shipped (Phase B.6, Tier 5)
 
-The Tier 5 pattern per devplan §11:
+The Tier 5 pattern per devplan §11 — runtime semantics moved to §5.3 (`:end` return) and §5.4 (call stack + binding); the example below is correct against the live engine. Note the `call before body` ordering: labels are no-ops at runtime, so the body must sit *after* the call to avoid the fall-through running the body at top-level.
 
 ```catoscript
-:DRINK $beverage                # declare a labeled snippet with a $beverage slot
-  meow "slurp $beverage"
-  jump :end                     # return — pops back to the caller
+jump :DRINK "milk"              # call
+jump :DRINK "tea"               # second call
+meow "done"
 
-jump :DRINK "milk"              # call: bind "milk" → $beverage, run the label, return
-jump :DRINK "tea"
+:DRINK $beverage               # body sits after the call (see §5.4 "call before body")
+  meow "slurp $beverage"
+  jump :end                    # return — pops back to the caller
 ```
 
-Mechanism per devplan §6 Phase B.6:
-
-1. `Stmt.Label` becomes `Label(name, params: List<String>, pos)`.
-2. `Stmt.Jump` becomes `Jump(label, args: List<Expr>, pos)`.
-3. Interpreter maintains `ArrayDeque<CallFrame>` (each frame holds `returnIp` + `bindings`).
-4. Recursion guard (max depth 64).
-
-**Current engine behavior:** `:DRINK $beverage` parses as `Label(name = "DRINK $beverage")` (one big label name). `jump :DRINK "milk"` parses as `Jump(label = "DRINK \"milk\"")`. Runtime crashes with `unknown label` or `undefined variable '$beverage'`. See §5.5 for the full trace.
+**`()` call punctuation** (§13.2.4 below) is still parser-only — the canonical sugar form `:GREET($name)` / `greet("mochi")` is not yet wired. The label-arg mechanism underneath it has shipped.
 
 #### `for $x in $items ... end_for` (Tier 6, §5.9)
 
@@ -942,8 +1027,6 @@ Per devplan §10, regex is **not** in scope — these verbs cover 95% of what sc
 
 ### 13.4 Future interpreter features
 
-- **Call stack** (Phase B.6) — see §13.2.1 for the mechanism.
-- **Recursion guard** (Phase B.6) — max depth 64.
 - **Pause / resume / `Stepper`** (§5.7) — scaffold types `ScriptContext` and `ThreadHandle` already exist (see §11.17) but `Interpreter.run()` doesn't use them. The `Stepper` interface lights up LSP debug features and REPL `:step`.
 
 ### 13.5 Future CLI tools
@@ -1000,12 +1083,12 @@ For AI assistants tempted to generate code with these features:
 | `0.1.0-LOCAL` | Phase A | empty library, package only, first publish |
 | `0.2.0-LOCAL` | Phase B | lexer/parser/script-context moved |
 | `0.3.0-LOCAL` | Phase B.5 + Phase C partial | real parser, AST, interpreter loop, `CatoHost`, `meow` routing. Audio/screen/env not yet routed. |
-| `0.3.1-LOCAL` | Phase B.6 | parked — lands when label parameters + call stack land |
+| `0.3.1-LOCAL` | Phase B.6 | shipped · label parameters + call stack + `jump :end` return opcode + `maxCallDepth=64` (6 new tests in `LabelParamsInterpreterTest.kt`) |
 | `0.4.0-LOCAL` | Phase E | parked — bumps when KP-side click-to-line work makes error positions user-visible |
 | `0.5.0-LOCAL` | Phase F | parked — bumps when CLI REPL ships |
 | `0.6.0-LOCAL` | Phase G | parked — bumps when analyzer/formatter/stepper land |
 
-Until `0.3.1-LOCAL` ships, do not generate code that uses label parameters. Until `0.4.0-LOCAL` ships, do not generate code that relies on column-precise error positions.
+Until `0.4.0-LOCAL` ships, do not generate code that relies on column-precise error positions.
 
 ---
 

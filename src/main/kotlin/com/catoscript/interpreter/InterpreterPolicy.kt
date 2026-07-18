@@ -12,5 +12,6 @@ package com.catoscript.interpreter
 data class InterpreterPolicy(
     val maxStepsPerTick: Int = 100,
     val maxTotalSteps: Long = 1_000_000,
-    val seed: Long? = null
+    val maxCallDepth: Int = 64,
+    val seed: Long? = null,
 )

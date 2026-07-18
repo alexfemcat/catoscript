@@ -26,9 +26,9 @@ sealed interface Stmt {
     @Serializable @SerialName("HissAt")
     data class HissAt(val label: String, val pos: SourcePos) : Stmt
     @Serializable @SerialName("Jump")
-    data class Jump(val label: String, val pos: SourcePos) : Stmt
+    data class Jump(val label: String, val args: List<Expr> = emptyList(), val pos: SourcePos) : Stmt
     @Serializable @SerialName("Label")
-    data class Label(val name: String, val pos: SourcePos) : Stmt
+    data class Label(val name: String, val params: List<String> = emptyList(), val pos: SourcePos) : Stmt
     @Serializable @SerialName("Comment")
     data class Comment(val text: String, val pos: SourcePos) : Stmt
     @Serializable

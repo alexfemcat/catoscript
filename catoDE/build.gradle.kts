@@ -21,6 +21,7 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    dependsOn(":shadowJar")
 }
 
 compose.desktop {

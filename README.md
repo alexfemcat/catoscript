@@ -194,7 +194,7 @@ catoscript> :exit
 > **Yes, the words are cat themed.** That is on purpose. The language grew up inside a cat themed game and the vocabulary stuck because it works. You will get used to `meow`, `sniff`, `purr_at`, and `hiss_at` in about ten minutes. If you hate them, the language still works the same — the words just feel weirder.
 
 1. **Read it out loud, then run it.** Every primitive has a one sentence English shape in cat vocabulary. `meow` prints. `sniff` checks a condition. `purr_at` jumps when true. `hiss_at` jumps when false. `jump` always jumps. If you cannot say it out loud and have the program do what you meant, the name is wrong.
-2. **Concepts before keywords.** We do not add a keyword to teach a concept that can be said in English. `if/else` becomes `sniff` + `purr_at` / `hiss_at`. `while` becomes a label + `jump`. `function` becomes `jump :LABEL` (with arguments, when Phase B.6 lands). You learn the *concept* before you ever see the syntax.
+2. **Concepts before keywords.** We do not add a keyword to teach a concept that can be said in English. `if/else` becomes `sniff` + `purr_at` / `hiss_at`. `while` becomes a label + `jump`. `function` becomes `jump :LABEL args... ... jump :end` (label parameters shipped in `0.3.1-LOCAL`). You learn the *concept* before you ever see the syntax.
 3. **The grammar is closed. The stdlib grows.** New capabilities land as functions under `std.*`, never as new keywords. The grammar is the smallest thing that can express the tier ladder. The standard library is the longest comment in the language, and it is written in catoscript itself, so you can read it.
 
 ---
@@ -211,7 +211,7 @@ The **status** column marks what is in the current library vs. what is locked in
 | 2 | shipped | Remember values between lines | `set $name "..."` |
 | 3 | shipped | Make the script branch on a yes/no question | `sniff ... purr_at ... hiss_at ...` |
 | 4 | shipped | Loop a block of lines via a label and `jump` | `:LOOP ... jump :LOOP` |
-| 5 | planned | Bundle a reusable snippet with inputs (Phase B.6 label parameters) | `jump :DRINK "milk"` |
+| 5 | shipped | Bundle a reusable snippet with inputs (label params + call stack + `jump :end` return) | `jump :DRINK "milk"` |
 | 6 | planned | Store many values in a row and walk them (`[]` lists + `for`/`[over]`) | `for $toy in $toys ... end_for` |
 | 7 | planned | Save values to disk and load them next run | `bury $score ... dig $score` |
 | 8 | planned | Promise a variable will hold a specific shape (opt-in `let`) | `let $count: num = 0` |
@@ -224,7 +224,7 @@ The **status** column marks what is in the current library vs. what is locked in
 | 15 | planned | Read and write JSON so your script can talk to other programs | `std.json.parse(...)`, `std.json.stringify(...)` |
 | 16 | planned | Reach the network through the host (fetch a URL) | `std.web.fetch("https://...")` |
 
-**Tiers 1 to 4 ship today. Tiers 5 to 16 are locked in the devplan and will land in their own commits, each behind its own feature flag.** A new player going Tier 1 → 16 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That is a programming curriculum, hidden inside a cat vocabulary. No "you will need to learn X first" gap — but most of the ladder is still ahead of the library.
+**Tiers 1 to 5 ship today. Tiers 6 to 16 are locked in the devplan and will land in their own commits, each behind its own feature flag.** A new player going Tier 1 → 16 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That is a programming curriculum, hidden inside a cat vocabulary. No "you will need to learn X first" gap — but most of the ladder is still ahead of the library.
 
 ---
 
@@ -299,7 +299,7 @@ greet("mochi")              # call it
 greet("mochi") greet("luna")
 ```
 
-`:GREET($name)` is the template declaration. `greet("mochi")` is the call. The underlying mechanism is the label system (Tier 5) plus label parameters (Phase B.6). `()` is the readable surface — it shows the player where the inputs go.
+`:GREET($name)` is the template declaration. `greet("mochi")` is the call. The underlying mechanism (Tier 5 label parameters + call stack) shipped in `0.3.1-LOCAL`; the readable `()` sugar is still pending — it shows the player where the inputs go without forcing them to remember the colon-prefix convention.
 
 ---
 

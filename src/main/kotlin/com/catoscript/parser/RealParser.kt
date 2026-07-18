@@ -62,7 +62,18 @@ object Parser {
         if (trimmed.isEmpty()) return listOf(Stmt.Empty)
         return when {
             trimmed.startsWith("#") -> listOf(Stmt.Comment(trimmed.substring(1).trim(), pos))
-            trimmed.startsWith(":") -> listOf(Stmt.Label(trimmed.substring(1).trim(), pos))
+            trimmed.startsWith(":") -> {
+                val body = trimmed.substring(1).trim()
+                val tokens = body.split(Regex("\\s+")).filter { it.isNotEmpty() }
+                val labelName = tokens.first()
+                val params = tokens.drop(1).map { token ->
+                    if (!token.startsWith("$")) {
+                        throw ParseError("label params must start with \$: '$token'", pos)
+                    }
+                    token.substring(1)
+                }
+                listOf(Stmt.Label(labelName, params, pos = pos))
+            }
             else -> {
                 val spaceAt = trimmed.indexOf(' ')
                 val keyword = if (spaceAt == -1) trimmed else trimmed.substring(0, spaceAt)
@@ -105,7 +116,11 @@ object Parser {
 
             "jump" -> {
                 if (!rest.startsWith(":")) throw ParseError("jump expects a label like :NAME", pos)
-                Stmt.Jump(rest.substring(1).trim(), pos)
+                val body = rest.substring(1).trim()
+                val tokens = body.split(Regex("\\s+")).filter { it.isNotEmpty() }
+                val target = tokens.first()
+                val args = tokens.drop(1).map { arg -> parseExpr(arg, pos) }
+                Stmt.Jump(target, args, pos = pos)
             }
 
             else -> throw ParseError("unknown command '$keyword'", pos)
@@ -132,9 +147,9 @@ object Parser {
         val innerStmts = parse(source, resolvedPath, inProgress + resolvedPath).stmts
         val skipLabel = "__include_skip_${includeSkipCounter.incrementAndGet()}"
         val wrapped = mutableListOf<Stmt>()
-        wrapped.add(Stmt.Jump(skipLabel, pos))
+        wrapped.add(Stmt.Jump(skipLabel, pos = pos))
         wrapped.addAll(innerStmts)
-        wrapped.add(Stmt.Label(skipLabel, pos))
+        wrapped.add(Stmt.Label(skipLabel, pos = pos))
         return wrapped
 
 

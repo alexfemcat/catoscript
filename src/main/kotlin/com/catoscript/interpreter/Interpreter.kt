@@ -36,11 +36,17 @@ class RuntimeErrorException(message: String) : RuntimeException(message)
 
 class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = InterpreterPolicy()) {
 
+    private data class CallFrame(val returnIp: Int, val callerVariables: Map<String, Value>)
+
     fun run(program: Program): InterpreterResult {
+
         var stepsConsumed = 0L
         try {
             val labels = buildLabelMap(program)
+            val labelParams = buildLabelParamsMap(program)
+            val labelBodyEnds = buildLabelBodyEnds(program)
             val variables = mutableMapOf<String, Value>()
+            val callStack = mutableListOf<CallFrame>()
             var lastSniff: Value.Bool? = null
             var ip = 0
 
@@ -77,7 +83,30 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                         else ip++
                     }
                     is Stmt.Jump -> {
-                        ip = labels[stmt.label] ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
+                        if (stmt.label == "end") {
+                            val frame = callStack.removeLastOrNull()
+                                ?: throw RuntimeErrorException("jump :end with no active call frame")
+                            variables.clear()
+                            variables.putAll(frame.callerVariables)
+                            ip = frame.returnIp
+                        } else {
+                            val targetIp = labels[stmt.label]
+                                ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
+                            val paramsList = labelParams[stmt.label] ?: emptyList()
+                            if (stmt.args.isNotEmpty() || paramsList.isNotEmpty()) {
+                                if (stmt.args.size != paramsList.size) {
+                                    throw RuntimeErrorException("arity mismatch on ':${stmt.label}': expected ${paramsList.size} args, got ${stmt.args.size}")
+                                }
+                                if (callStack.size >= policy.maxCallDepth) {
+                                    throw RuntimeErrorException("call depth exceeded ${policy.maxCallDepth} (recursive label calls)")
+                                }
+                                callStack.add(CallFrame(returnIp = labelBodyEnds[stmt.label] ?: (ip + 1), callerVariables = variables.toMap()))
+                                for ((paramName, argExpr) in paramsList.zip(stmt.args)) {
+                                    variables[paramName] = eval(argExpr, variables)
+                                }
+                            }
+                            ip = targetIp
+                        }
                     }
                 }
                 stepsConsumed++
@@ -99,6 +128,35 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
         }
         return map
     }
+
+    private fun buildLabelParamsMap(program: Program): Map<String, List<String>> {
+        val map = mutableMapOf<String, List<String>>()
+        for (stmt in program.stmts) {
+            if (stmt is Stmt.Label && stmt.params.isNotEmpty()) {
+                map[stmt.name] = stmt.params
+            }
+        }
+        return map
+    }
+
+    private fun buildLabelBodyEnds(program: Program): Map<String, Int> {
+        val map = mutableMapOf<String, Int>()
+        for ((i, stmt) in program.stmts.withIndex()) {
+            if (stmt is Stmt.Label && stmt.params.isNotEmpty()) {
+                var endIp = program.stmts.size
+                for (j in i + 1 until program.stmts.size) {
+                    if (program.stmts[j] is Stmt.Jump && (program.stmts[j] as Stmt.Jump).label == "end") {
+                        endIp = j + 1
+                        break
+                    }
+                }
+                map[stmt.name] = endIp
+            }
+        }
+        return map
+    }
+
+
 
     private fun eval(expr: Expr, variables: Map<String, Value>): Value {
         return when (expr) {
