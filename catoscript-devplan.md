@@ -320,32 +320,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > Phase B.6 closes a gap the devplan §11 Tier 5 calls for but no Phase B checkbox enumerated. Tier 5 ("a function is a labeled snippet with inputs") and §12 stdlib examples (`std.cli.exit_fail`) both depend on it. The work is small: parser shape changes, interpreter carries a call frame list, and `jump :end` becomes the return opcode.
 >
-> **Shipped 2026-07-18 · 0.3.1-LOCAL · 6 new interpreter tests.** Source is green, all 25 tests pass (19 existing + 6 in `LabelParamsInterpreterTest.kt`), `./gradlew build` runs clean. Interpreter changes: `InterpreterPolicy.maxCallDepth = 64`; private nested `CallFrame(returnIp, callerVariables)`; `buildLabelParamsMap` (only labels with non-empty params) and `buildLabelBodyEnds` (scans forward for the body's `jump :end`, stores the resume-after `j + 1` or `stmts.size` if no end); a mutable `callStack` in `run()`; two-branch `Stmt.Jump` (`:end` returns; anything else resolves, optionally pushes a frame after arity + depth checks, then unconditionally jumps). Runtime errors: `arity mismatch on ':<name>': expected <n> args, got <m>`, `call depth exceeded <n> (recursive label calls)`, `jump :end with no active call frame`. See `catoscript-reference.md` §5.3 + §5.4 for the user-facing description.
->
-> **Known shape gap — Tier 5 example mismatch.** The devplan's own §11 Tier 5 example uses the body-before-call shape:
->
-> ```catoscript
-> :DRINK $beverage              # body BEFORE the call
->   meow "slurp $beverage"
->   jump :end
->
-> jump :DRINK "milk"
-> jump :DRINK "tea"
-> ```
->
-> Under the shipped semantics this crashes on `meow "slurp $beverage"` at top level (undefined `$beverage` — labels are no-ops at runtime, so execution falls *into* the body before reaching the `jump :DRINK "milk"` call). The reorder that actually runs is "call before body," per §5.4 of the reference:
->
-> ```catoscript
-> jump :DRINK "milk"
-> jump :DRINK "tea"
-> meow "done"
->
-> :DRINK $beverage
->   meow "slurp $beverage"
->   jump :end
-> ```
->
-> The `labelBodyEnds` map handles the post-return fall-through: when `jump :end` returns, control resumes at the position *after* the body's `jump :end`, not at the call site, so `meow "done"` at top-level still runs after a call returns. The §11 prose example is stale — it documents the v0.3.0-LOCAL mental model where body-before-call was harmless because there were no params. The Tier-5 example needs an edit in a follow-up commit; this flag is left here so the docs and the engine don't drift further.
+> **Shipped 2026-07-18 · 0.3.1-LOCAL · 6 new interpreter tests.** Source is green, all 25 tests pass (19 existing + 6 in `LabelParamsInterpreterTest.kt`), `./gradlew build` runs clean. Interpreter changes: `InterpreterPolicy.maxCallDepth = 64`; private nested `CallFrame(returnIp, callerVariables)`; `buildLabelParamsMap` (only labels with non-empty params) and `buildLabelBodyEnds` (scans forward for the body's `jump :end`, stores the resume-after `j + 1` or `stmts.size` if no end); a mutable `callStack` in `run()`; two-branch `Stmt.Jump` (`:end` returns; anything else resolves, optionally pushes a frame after arity + depth checks, then unconditionally jumps). Runtime errors: `arity mismatch on ':<name>': expected <n> args, got <m>`, `call depth exceeded <n> (recursive label calls)`, `jump :end with no active call frame`. See `catoscript-reference.md` §5.3 + §5.4 for the user-facing description. The devplan §11 Tier-5 example was reordered to "call before body" to match the shipped semantics; `samples/misc/tier5-demo.cato` ships as the runnable Tier 5 demonstration.
 
 - [x] Extend `CompareOp` enum to include `GT`, `GTE`, `LTE`, `NEQ` alongside the existing `LT` and `EQ` *(shipped as part of the parser+interpreter work tied to samples/3.cato's `>` workaround; one commit, no new mechanism)*
 - [x] Parser `parseCompare`: recognize the four new operators with `<=` / `>=` checked before `<` / `>` so the longer substrings win; gate `parseExpr` on the full operator set
@@ -596,15 +571,16 @@ Concept taught: *a loop is a label you can jump back to.* The `for` from §5.9 l
 **Tier 5 · Decomposition**
 
 ```catoscript
+jump :DRINK "milk"
+jump :DRINK "tea"
+meow "done"
+
 :DRINK $beverage
   meow "slurp $beverage"
   jump :end
-
-jump :DRINK "milk"
-jump :DRINK "tea"
 ```
 
-Concept taught: *a function is a labeled snippet with inputs.* Calling it is `jump :NAME args`. Returning is `jump :end`. No `def`, no `return`, no `()`. The player has *learned functions* without learning the word "function."
+Concept taught: *a function is a labeled snippet with inputs.* Calling it is `jump :NAME args`. Returning is `jump :end`. No `def`, no `return`, no `()`. The player has *learned functions* without learning the word "function." Note the **call-before-body** ordering: because labels are no-ops at runtime, the body must sit *after* the calls so the body executes via the call (with `$beverage` bound) and not via top-level fall-through (where `$beverage` would be undefined). The `meow "done"` after the calls demonstrates that top-level execution continues after each call returns — `labelBodyEnds` points past the body's `jump :end`, so the caller resumes at the statement that follows the body's terminator, not at the call site.
 
 **Tier 6 · Lists**
 

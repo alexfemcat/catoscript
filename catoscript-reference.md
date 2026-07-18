@@ -323,8 +323,6 @@ done
 
 **Known limitation — args still cannot contain internal whitespace.** `jump :GREET "two words"` fails at `parseExpr` for the trailing `words"` because args are tokenized on whitespace. Pass strings through a variable: `set $msg "two words"` then `jump :GREET $msg`. (The same parser gap affects all `Expr` args and is unchanged from the parser-only era.)
 
-**Known shape constraint — "call before body" pattern.** Because labels are no-ops at runtime, the body sits where the source puts it. If a script writes the body *before* the call (the devplan's own §11 Tier 5 example does this), the top-level execution falls *into* the body and `$beverage` is undefined. The body must come *after* the call, or be reordered to put the call first. The devplan example uses the legacy body-before-call ordering and would crash on the first `meow`; see "Tier-5 example mismatch" in the §11 devplan note (`catoscript-devplan.md` §6 Phase B.6 shipped status).
-
 ### 5.5 Label parameters · end-to-end summary
 
 Phase B.6 ships. The complete shape:
@@ -786,14 +784,14 @@ These change how a script reads, not just which commands exist.
 
 #### Label parameters + call stack — shipped (Phase B.6, Tier 5)
 
-The Tier 5 pattern per devplan §11 — runtime semantics moved to §5.3 (`:end` return) and §5.4 (call stack + binding); the example below is correct against the live engine. Note the `call before body` ordering: labels are no-ops at runtime, so the body must sit *after* the call to avoid the fall-through running the body at top-level.
+The Tier 5 pattern per devplan §11 — runtime semantics in §5.3 (`:end` return) and §5.4 (call stack + binding); the example below is correct against the live engine. A runnable demo lives at `samples/misc/tier5-demo.cato`.
 
 ```catoscript
 jump :DRINK "milk"              # call
 jump :DRINK "tea"               # second call
 meow "done"
 
-:DRINK $beverage               # body sits after the call (see §5.4 "call before body")
+:DRINK $beverage               # body sits after the calls
   meow "slurp $beverage"
   jump :end                    # return — pops back to the caller
 ```
