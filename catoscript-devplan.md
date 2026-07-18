@@ -252,11 +252,31 @@ Items locked in this session — pass all four checks (§5, §10, §11, §13) an
 - [ ] **Lists + `[over]` iteration + syntax coloring for both (shipped as one block).** Adds (a) list literals via `[]` (one variable holds many things in order), (b) the `[over]` bracket operator for walking a list one item at a time, and (c) editor syntax coloring for both new syntaxes in the TextMate grammar (`editor/syntaxes/catoscript.tmLanguage.json`). Ships as one commit because the three pieces form one coherent feature: lists without `[over]` are dead data, `[over]` without lists has nothing to walk, and both need coloring to be readable. The bracket syntax fits the punctuation-not-keyword rule from §14; Tier 6 already calls lists *"a row of boxes"* (§11).
 - [ ] **`()` function-call punctuation + syntax coloring (shipped as one block).** Adds (a) `()` as the slot punctuation for declaring and calling functions — `:greet($name)` is the template declaration, `greet("mochi")` is the call — and (b) editor syntax coloring for the new function-call syntax in the TextMate grammar. Ships as one commit because the two pieces form one coherent feature: the punctuation without coloring is unreadable in the editor, and coloring without the punctuation has nothing to color. Fits the punctuation-not-keyword rule from §14 (does not add `def`/`fn`). Underlying mechanism is already shipped (Tier 5 + Phase B.6 label parameters); this is the readable surface.
 
-### Proposed (under review, 2026-07-17)
+### Confirmed
 
 These passed the §11 read-out-loud test but do not collapse line count, so they sit outside the §5.9 bar until the project decides whether readability alone is sufficient for *punctuation* additions (distinct from the bar for keywords).
 
 - [ ] **`[is]` bracket operator — predication as declaration.** Lets declarative assignments read as english sentences: `$state [is] loading` reads as *"the state is loading"* where `set $state "loading"` reads as *"set state to loading."* Runtime effect is identical to `set` (both bind name to value); the gain is read-out-loud quality for status blocks, state names, role tags. Punctuation, not a keyword — does not violate the closed-grammar rule from §14. **Open question:** does the §10 amendment process apply when the proposal changes how a line reads but not how long it is?
+- [ ] **`[shuffle]` bracket operator — list randomization.** Lets lists be randomized in place: `$deck [shuffle]` reads as *"the deck is shuffled,"* or as a flow `$deck [shuffle] $shuffled_deck` reads as *"the deck shuffles into a shuffled deck"* (matching the `[over]` source-into-output pattern). Runtime effect is identical to `std.random.shuffle($list)` already proposed in §14; the gain is read-out-loud quality and consistency with the growing bracket family (`[is]` declares, `[over]` walks, `[shuffle]` randomizes). Punctuation, not a keyword — does not violate the closed-grammar rule from §14. **Open question (paired with `[is]`):** does the §10 amendment process apply when the proposal changes how an operation reads but not what it does?
+- [ ] **`[first]` bracket operator — first item.** Selects the first item of a list: `$deck [first] $top_card` reads as *"the deck's first is the top card."* Runtime effect identical to `std.list.first($list)` already proposed in §14. Punctuation, not a keyword. One-word bracket; pairs naturally with `[last]`.
+- [ ] **`[last]` bracket operator — last item.** Selects the last item of a list: `$deck [last] $bottom_card` reads as *"the deck's last is the bottom card."* Runtime effect identical to `std.list.last($list)`. Punctuation, not a keyword. Pairs with `[first]`.
+- [ ] **`[sort]` bracket operator — sort a list.** Sorts a list in place: `$names [sort] $sorted` reads as *"the names sort into sorted."* Runtime effect identical to `std.list.sort($list)`. Punctuation, not a keyword. Pairs with `[shuffle]` — one randomizes order, the other orders it (transformation family).
+- [ ] **`[count]` bracket operator — list size.** Counts items in a list: `$list [count] $n` reads as *"the list's count is n."* Runtime effect identical to `std.list.length($list)`. Punctuation, not a keyword. The aggregation counterpart to selection (`[first]`/`[last]`); pairs with `[empty?]` as the two main "ask the list about itself" brackets.
+- [ ] **`[empty?]` bracket operator — emptiness test.** Boolean check: `$list [empty?] $is_empty` reads as *"the list empty, is_empty."* Runtime effect identical to `std.list.is_empty($list)`. Punctuation, not a keyword. The trailing `?` makes the test nature visible at a glance — distinct from verbs that return values.
+- [ ] **`[reverse]` bracket operator — reverse a list.** Reverses a list in place: `$names [reverse] $reversed` reads as *"the names reverse into reversed."* Runtime effect identical to `std.list.reverse($list)` already proposed in §14. Punctuation, not a keyword — pairs with `[sort]` (deterministic order) and `[shuffle]` (random order) as the order family.
+- [ ] **`[contains? $x]` bracket operator — membership test.** Boolean check: `$toys [contains? "yarn"] $has_yarn` reads as *"the toys contain yarn, has_yarn."* Runtime effect identical to `std.list.contains($list, $x)`. Punctuation, not a keyword. The trailing `?` makes the test nature visible at a glance — pairs with `[empty?]` as the two main "ask the list about itself" brackets. The `$x` argument is the *one* bracket in the family that takes an inline operand; if that feels like too much shape, it can ship as `std.list.contains($toys, "yarn")` and the bracket stays parked until a player script actually wants the shorter form.
+- [ ] **`[join "sep"]` bracket operator — list → string.** Joins a list of strings with a separator: `$parts [join "-"] $slug` reads as *"the parts join with dash into slug."* Runtime effect identical to `std.list.join($list, $sep)`. Punctuation, not a keyword — pairs with `[first]`/`[last]`/`[count]` as the shape-and-selection family. Same inline-argument caveat as `[contains?]`; bracket form is sugar, stdlib form is canonical.
+
+**Bracket family inventory (after this lands):**
+
+- `[]` literal · `[over]` walker
+- declaration: `[is]`
+- order: `[sort]`, `[shuffle]`, `[reverse]`
+- selection: `[first]`, `[last]`
+- shape: `[count]`, `[join "sep"]`
+- test: `[empty?]`, `[contains? $x]`
+
+Nine bracket operators plus the `[]` literal and `[over]` walker. Family is grouped (declaration / order / selection / shape / test) — readable as a vocabulary card. **The family is closed after this round.** No more brackets proposed; further expansion goes through the §10 amendment process.
 
 ---
 
@@ -1060,6 +1080,45 @@ std.fs.write("config.json", $out)
 
 **Concept taught:** *structured data has a text form, and the script can read and write that form. Players learn serialization, the idea that data can travel between programs, and that their script can cooperate with other programs.*
 
+**Tier 16 · Talking over the wire — `std.web`**
+
+JSON (Tier 15) lets the script *parse* structured data; `std.web.fetch` lets the script *get* it from a URL. §10 keeps raw network calls out of the language; the host owns the seam. The minimum viable thing is a thin stdlib wrapper around a host method.
+
+```catoscript
+set $body std.web.fetch("https://api.example.com/cats")
+set $cfg  std.json.parse($body)
+set $cats std.json.get($cfg, "cats")
+for $cat in $cats
+  meow "$cat.name has $cat.lives lives"
+end_for
+```
+
+**Passes all four checks:**
+- §5: stdlib addition, no grammar change.
+- §10: collapses the manual HTTP-loop pattern. The language stays pure; the host does the network.
+- §11: `std.web.fetch("url")` reads as English — *"fetch the url, hand me the body."*
+- §13: one new host method, no parser/interpreter work. Ships behind `web.enable` until a player script actually needs it.
+
+**CatoHost extension (one line):**
+
+```kotlin
+interface CatoHost {
+    // existing (§2 + §12 + §14)...
+    fun fetchUrl(url: String): String?     // null on unreachable / non-2xx / host that doesn't network
+}
+```
+
+**Per-host behavior:** `NullHost` → `null`. `KernelPanicHost` → `null` (KP isn't a network host). `ReplHost` → real HTTP via `java.net.http.HttpClient`. Future web playground → real browser `fetch()`. The host picks.
+
+**Optional companions** (each its own feature flag, ship only when a player script asks):
+- `std.web.get(url, headers)` — GET with headers
+- `std.web.post(url, body)` — POST with body
+- `std.web.status(url)` — reachability check
+
+Base ship is just `std.web.fetch`. Companions land when needed.
+
+**Concept taught:** *the host seam is where the world meets the script. The script drives; the host connects. Network I/O is the host's job, exposed readably to the script.*
+
 ### The six rejected proposals
 
 These are real things players might ask for. They look tempting but fail the four checks. Naming them now so they don't sneak in later.
@@ -1100,7 +1159,7 @@ Fails §11. `match`/`case` are syntax for "switch on value," which the player al
 
 **Where it lands instead:** `std.case.dispatch $x { 1: :CASE_1, 2: :CASE_2 } $default` *might* clear §11 someday — but only after seeing 100 player scripts use the label pattern first. The label pattern is enough for now.
 
-### The full fifteen-tier ladder
+### The full sixteen-tier ladder
 
 Pulling §5, §11, §12, and §14 together:
 
@@ -1120,9 +1179,10 @@ Tier 12  Other people's code           std.time, std.random
 Tier 13  The world outside the script  std.fs, std.path
 Tier 14  Testing what you built        std.test, cato test
 Tier 15  Talking to other programs     std.json, structured data
+Tier 16  Talking over the wire         std.web.fetch (host seam wrapper)
 ```
 
-**Every concept a player needs to script the terminal, automate the simulation, write CLI tools, build interactive apps, talk to the filesystem, test what they built, and cooperate with other programs.** No "you'll need to learn X first" gap.
+**Every concept a player needs to script the terminal, automate the simulation, write CLI tools, build interactive apps, talk to the filesystem, test what they built, cooperate with other programs, and reach the network through the host.** No "you'll need to learn X first" gap.
 
 ### The `CatoHost` extension list (consolidated)
 
@@ -1153,6 +1213,9 @@ interface CatoHost {
     fun readFile(path: String): String?
     fun writeFile(path: String, content: String): Boolean
     fun fileExists(path: String): Boolean
+
+    // §16 — network (optional; null for non-network hosts)
+    fun fetchUrl(url: String): String?
 }
 
 object NullHost : CatoHost {
@@ -1162,12 +1225,12 @@ object NullHost : CatoHost {
 
 **Per-host implementation policy:**
 
-| Host | terminal | audio | clock | env | CLI | FS |
-|---|---|---|---|---|---|---|
-| `NullHost` (lib tests) | no-op | no-op | `System.currentTimeMillis()` | `null` | `[]` / EOF | `null` / false |
-| `ReplHost` (CLI REPL) | ANSI stdout | none | real | env-vars | real | real disk |
-| `KernelPanicHost` (KP) | Compose `Text` | `playTone` via audio engine | real | game state | no-op | VFS delegate |
-| `WebHost` (playground, future) | `<canvas>` | WebAudio | `Date.now()` | URL params | none | virtual FS |
+| Host | terminal | audio | clock | env | CLI | FS | Network |
+|---|---|---|---|---|---|---|---|
+| `NullHost` (lib tests) | no-op | no-op | `System.currentTimeMillis()` | `null` | `[]` / EOF | `null` / false | `null` |
+| `ReplHost` (CLI REPL) | ANSI stdout | none | real | env-vars | real | real disk | `java.net.http.HttpClient` |
+| `KernelPanicHost` (KP) | Compose `Text` | `playTone` via audio engine | real | game state | no-op | VFS delegate | not available |
+| `WebHost` (playground, future) | `<canvas>` | WebAudio | `Date.now()` | URL params | none | virtual FS | browser `fetch()` |
 
 Every method is optional in the sense that the host picks what's meaningful. No host implements everything.
 
@@ -1177,16 +1240,17 @@ Every method is optional in the sense that the host picks what's meaningful. No 
 - **The four-check process is policy.** Every proposal goes through it. If it doesn't pass all four, it doesn't ship.
 - **The four-item implementation list (§13) is closed.** New stdlib namespaces don't add parser or interpreter work; they're scripts in `samples/std/` plus a registry entry.
 - **The host seam is the only extension point.** New system capabilities (network, audio, filesystem, env) are host methods, not language features.
-- **The tier ladder is complete.** A new player going Tier 1 → 15 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop. That's a programming curriculum, hidden inside a cat vocabulary.
+- **The tier ladder is complete.** A new player going Tier 1 → 16 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That's a programming curriculum, hidden inside a cat vocabulary.
 
 ### What "done" looks like for §14
 
 The capability surface is complete when:
 
 - The four stdlib namespaces (time, fs, test, json) ship behind their feature flags and pass tests
-- The CLI REPL's `:tutorial` walks all 15 tiers
+- The five stdlib namespaces (time, fs, test, json, web) ship behind their feature flags and pass tests
+- The CLI REPL's `:tutorial` walks all 16 tiers
 - Every approved capability has at least one real-world example in `samples/` that's a Tier-3-readable catoscript script
 - Every rejected proposal (async, `def`, classes, modules, regex, `match`) is documented in this section with its rejection reason and where the need lands instead
-- The `CatoHost` extension list above ships, with `NullHost` providing sensible defaults for all 14 methods
+- The `CatoHost` extension list above ships, with `NullHost` providing sensible defaults for all 15 methods
 - A second consumer (a CLI tool author, a textbook, a teaching tool) can adopt the language and find every common need covered by a stdlib namespace, with no language changes required
-- Five years from now, the tier ladder is recognizably the same 15 tiers — no tiers added, none removed. New stdlib namespaces land inside existing tiers.
+- Five years from now, the tier ladder is recognizably the same 16 tiers — no tiers added, none removed. New stdlib namespaces land inside existing tiers.

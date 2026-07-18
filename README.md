@@ -78,28 +78,32 @@ meow "game over"
 
 This is what an `if/else` looks like in catoscript, just spelled out in English instead of nested braces.
 
-### 1.4 Walk through a list
+### 1.4 Skip a block with a label
 
 ```catoscript
-set $toys ["ball", "mouse", "yarn"]
-for $toy in $toys
-  meow "$toy!"
-end_for
+meow "before"
+jump :SKIP
+meow "never prints"
+:SKIP
+meow "after"
 ```
 
-`set $toys [...]` makes a list (three boxes in a row, labeled with three toy names). `for $toy in $toys` means "take each box out of the row, one at a time, and for each one call it `$toy`." The indented line runs once per item. `end_for` ends the loop. The screen shows:
+`:SKIP` is a label, a named signpost in the file. `jump :SKIP` moves the interpreter there in one step. Lines between the original position and the label are skipped. The screen shows:
 
 ```
-ball!
-mouse!
-yarn!
+before
+after
 ```
 
-That is what a `for` loop looks like in catoscript. Same idea as Python's `for x in xs:`, just spelled as a sentence.
+A conditional branch uses `sniff` + `purr_at` together (you saw that in §1.3). The interpreter walks top to bottom and labels are the only places it can land besides the next line. A real loop — repeat until a condition flips — uses `sniff` + `purr_at :LOOP` in the same shape you saw in §1.3.
 
-### 1.5 You just learned the whole language
+> **Note.** A `for ... in ...` loop and list literals (`[]`) are *planned* in the devplan §5.9 but **not yet shipped** in the current library. The label + `jump` pattern shown here is the only iteration shape that runs today.
 
-Those four scripts use every shape the language has: print, variable, decision, jump, loop. Every other script is a combination of those plus the standard library (`std.cli` for command line tools, `std.fs` for files, `std.test` for tests, and so on). When you can read the four snippets above out loud and predict what they do, you can read any catoscript script in this repo.
+### 1.5 You just learned the shipped surface
+
+Those four scripts cover every shape that ships in the current library: print (`meow`), variable (`set`), decision (`sniff` + `purr_at` / `hiss_at`), and unconditional jump (`jump :LABEL`). The interpreter loops by going back to a label, conditionally via `sniff` + `purr_at`, unconditionally via `jump`. That is the whole engine.
+
+Beyond them are the *planned* additions — `for` over lists, the `[]` bracket family, `()` for function calls, the `std.*` standard library, persistence (`bury` / `dig`), and the rest of the tier ladder. Each is locked into the devplan §5.9 / §14 and documented in §5 below. They are not in the current library; they will land in their own commits.
 
 ---
 
@@ -189,8 +193,8 @@ catoscript> :exit
 
 > **Yes, the words are cat themed.** That is on purpose. The language grew up inside a cat themed game and the vocabulary stuck because it works. You will get used to `meow`, `sniff`, `purr_at`, and `hiss_at` in about ten minutes. If you hate them, the language still works the same — the words just feel weirder.
 
-1. **Read it out loud, then run it.** Every primitive has a one sentence English shape in cat vocabulary. `meow` prints. `sniff` checks a condition. `purr_at` jumps when true. `hiss_at` jumps when false. `jump` always jumps. `scratch` increments. `bat` decrements. If you cannot say it out loud and have the program do what you meant, the name is wrong.
-2. **Concepts before keywords.** We do not add a keyword to teach a concept that can be said in English. `if/else` becomes `sniff` + `purr_at` / `hiss_at`. `while` becomes a label + `jump`. `function` becomes `jump :LABEL args`. You learn the *concept* before you ever see the syntax.
+1. **Read it out loud, then run it.** Every primitive has a one sentence English shape in cat vocabulary. `meow` prints. `sniff` checks a condition. `purr_at` jumps when true. `hiss_at` jumps when false. `jump` always jumps. If you cannot say it out loud and have the program do what you meant, the name is wrong.
+2. **Concepts before keywords.** We do not add a keyword to teach a concept that can be said in English. `if/else` becomes `sniff` + `purr_at` / `hiss_at`. `while` becomes a label + `jump`. `function` becomes `jump :LABEL` (with arguments, when Phase B.6 lands). You learn the *concept* before you ever see the syntax.
 3. **The grammar is closed. The stdlib grows.** New capabilities land as functions under `std.*`, never as new keywords. The grammar is the smallest thing that can express the tier ladder. The standard library is the longest comment in the language, and it is written in catoscript itself, so you can read it.
 
 ---
@@ -199,29 +203,107 @@ catoscript> :exit
 
 If you keep going past the four scripts above, here is the whole journey, in order. Each tier unlocks the next. Pick a tier, build something, move on. You do not have to climb straight to the top.
 
-| Tier | What you can do after | The one line shape |
-|---|---|---|
-| 1 | Write a script that prints things in order | `meow "..."` |
-| 2 | Remember values between lines | `set $name "..."` |
-| 3 | Make the script branch on a yes/no question | `sniff ... purr_at ... hiss_at ...` |
-| 4 | Repeat a block of lines until a condition flips | `:LOOP ... jump :LOOP` |
-| 5 | Bundle a reusable snippet with inputs | `jump :DRINK "milk"` |
-| 6 | Store many values in a row and walk them | `for $toy in $toys ... end_for` |
-| 7 | Save values to disk and load them next run | `bury $score ... dig $score` |
-| 8 | Promise a variable will hold a specific shape | `let $count: num = 0` |
-| 9 | Build a command line tool that takes flags and files | `std.cli.args()`, `std.cli.exit(...)` |
-| 10 | Ask the user a question, show a message, confirm yes/no | `ask`, `show`, `confirm` |
-| 11 | Build a full screen menu out of asks and jumps | `menu :MAIN_MENU` |
-| 12 | Use clocks and randomness from the standard library | `std.time.now()`, `std.random.dice("3d6")` |
-| 13 | Read and write files on disk | `std.fs.read("log.txt")`, `std.fs.write(...)` |
-| 14 | Write tests for your own scripts | `cato test script.cato` |
-| 15 | Read and write JSON so your script can talk to other programs | `std.json.parse(...)`, `std.json.stringify(...)` |
+The **status** column marks what is in the current library vs. what is locked into the devplan but not yet shipped. *Shipped* means the snippet on the right runs today. *Planned* means it is approved (per the four-check process in §7) but the language work has not landed yet.
 
-**Fifteen tiers. By the end you can script the terminal, automate a simulation, write CLI tools, build interactive apps, talk to the filesystem, test what you built, and cooperate with other programs. No "you will need to learn X first" gap.**
+| Tier | Status | What you can do after | The one line shape |
+|---|---|---|---|
+| 1 | shipped | Write a script that prints things in order | `meow "..."` |
+| 2 | shipped | Remember values between lines | `set $name "..."` |
+| 3 | shipped | Make the script branch on a yes/no question | `sniff ... purr_at ... hiss_at ...` |
+| 4 | shipped | Loop a block of lines via a label and `jump` | `:LOOP ... jump :LOOP` |
+| 5 | planned | Bundle a reusable snippet with inputs (Phase B.6 label parameters) | `jump :DRINK "milk"` |
+| 6 | planned | Store many values in a row and walk them (`[]` lists + `for`/`[over]`) | `for $toy in $toys ... end_for` |
+| 7 | planned | Save values to disk and load them next run | `bury $score ... dig $score` |
+| 8 | planned | Promise a variable will hold a specific shape (opt-in `let`) | `let $count: num = 0` |
+| 9 | planned | Build a command line tool that takes flags and files | `std.cli.args()`, `std.cli.exit(...)` |
+| 10 | planned | Ask the user a question, show a message, confirm yes/no | `ask`, `show`, `confirm` |
+| 11 | planned | Build a full screen menu out of asks and jumps | `menu :MAIN_MENU` |
+| 12 | planned | Use clocks and randomness from the standard library | `std.time.now()`, `std.random.dice("3d6")` |
+| 13 | planned | Read and write files on disk | `std.fs.read("log.txt")`, `std.fs.write(...)` |
+| 14 | planned | Write tests for your own scripts | `cato test script.cato` |
+| 15 | planned | Read and write JSON so your script can talk to other programs | `std.json.parse(...)`, `std.json.stringify(...)` |
+| 16 | planned | Reach the network through the host (fetch a URL) | `std.web.fetch("https://...")` |
+
+**Tiers 1 to 4 ship today. Tiers 5 to 16 are locked in the devplan and will land in their own commits, each behind its own feature flag.** A new player going Tier 1 → 16 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That is a programming curriculum, hidden inside a cat vocabulary. No "you will need to learn X first" gap — but most of the ladder is still ahead of the library.
 
 ---
 
-## 5. The two pulls (and how we resolve them)
+## 5. The `[]` family and the `()` call
+
+Beyond the keywords, catoscript has a small vocabulary of punctuation that makes list work and function calls read out loud. Each entry below is sugar for a `std.*` function. None are keywords. The grammar stays closed.
+
+> **Status.** The bracket family and `()` call punctuation are defined in `catoscript-devplan.md` §5.9 and §14 but **not yet shipped** in the current library. They are documented here so the language shape is visible end to end. Each lands in its own commit once its tier work begins.
+
+### `[]` lists · `[over]` walker
+
+```catoscript
+set $toys ["ball", "mouse", "yarn"]
+for $toy in $toys          # equivalent to: $toys [over] $toy
+  meow "$toy"
+end_for
+```
+
+`[]` is a list literal (a row of boxes). `for ... in ...` desugars to `[over]` — the keyword form for readability, the bracket form for short scripts.
+
+### The bracket vocabulary
+
+Nine bracket operators, grouped by what they do.
+
+**Declaration** — read like a sentence:
+
+```catoscript
+$state [is] loading        # same as: set $state "loading"
+```
+
+**Order** — arrange or randomize a list:
+
+```catoscript
+$names [sort]    $sorted       # alphabetical
+$deck  [shuffle] $shuffled     # randomized
+$names [reverse] $reversed     # backwards
+```
+
+**Selection** — pick one item:
+
+```catoscript
+$deck [first] $top_card
+$deck [last]  $bottom_card
+```
+
+**Shape** — ask about or transform the whole list:
+
+```catoscript
+$list  [count] $n              # how many items
+$parts [join "-"] $slug        # glue with a separator
+```
+
+**Test** — ask yes/no about the list:
+
+```catoscript
+$list   [empty?]         $is_empty    # nothing in it?
+$toys   [contains? "yarn"] $has_yarn  # has this item?
+```
+
+Every bracket is sugar for a `std.list.*` or `std.random.*` function. The bracket is the readable form; the stdlib function is canonical. **The bracket family is closed after this round.** Further expansion goes through the §10 amendment process.
+
+### `()` for function calls
+
+A function is a label with inputs. `()` shows the slot:
+
+```catoscript
+:GREET $name                # declare a labeled snippet with a $name slot
+  meow "hello, $name"
+  jump :end
+
+greet("mochi")              # call it
+greet("mochi") greet("luna")
+```
+
+`:GREET($name)` is the template declaration. `greet("mochi")` is the call. The underlying mechanism is the label system (Tier 5) plus label parameters (Phase B.6). `()` is the readable surface — it shows the player where the inputs go.
+
+---
+
+## 6. The two pulls (and how we resolve them)
 
 Two pressures push on this language, and the design is the answer to both.
 
@@ -236,7 +318,7 @@ You do not have to agree with the bet to use the language. But if you have ever 
 
 ---
 
-## 6. The rules
+## 7. The rules
 
 These are not aspirations. They are gates. A proposal that fails any of them does not ship.
 
@@ -264,13 +346,13 @@ The temptation: "catoscript should be a *real* language, so it should have..." f
 | Lambdas / higher order functions | The player can `for` over a list. Lambdas add syntax, scoping, and closure rules for no real win. |
 | Classes / inheritance | The host models state. The language drives state. Two sources of truth = bugs. |
 | Coroutines / `async` / `await` | The interpreter loop *is* the cooperative scheduler. There is nothing to await. |
-| Operator overloading | Clever once, confusing forever. `std.str.concat(a, b)` reads; `a + b` doing magic does not. |
+| Operator overloading | Clever once, confusing forever. Explicit function calls read; `a + b` doing magic does not. |
 | Module system / packages | One file = one script. `include` is the only seam needed. |
 | Macros / compile time evaluation | The player writes runtime scripts, not a language. Macros add a meta language to read other people's scripts. |
 | Bytecode compiler / AOT to JVM classes | Worth doing eventually for performance, not now. Solve the perf problem when one exists. |
 | Generic type parameters / variance | Opt in types are for the analyzer, not runtime dispatch. `list<str>` is sugar. |
 | Pattern matching beyond `sniff` | `sniff ==` covers 90% of what players do. Full pattern matching is a parser project for marginal benefit. |
-| String interpolation with code execution | Embedded expression grammar in strings. Use `knead` and concatenation. |
+| String interpolation with code execution | Embedded expression grammar in strings. Stick to `$var` interpolation; no code in strings. |
 
 **The rule.** Add a feature only if it collapses something the player currently has to write. Never add a feature for parity with another language.
 
@@ -286,7 +368,7 @@ This is bureaucracy on purpose. Languages die from feature creep, not from missi
 
 ---
 
-## 7. The host seam (`CatoHost`)
+## 8. The host seam (`CatoHost`)
 
 Every command that needs to reach outside the script goes through one interface. The interpreter takes a host in its constructor. The library ships `NullHost` for tests and the CLI REPL. Kernel Panic ships `KernelPanicHost`. Future hosts pick.
 
@@ -312,6 +394,8 @@ interface CatoHost {
     fun readFile(path: String): String?
     fun writeFile(path: String, content: String): Boolean
     fun fileExists(path: String): Boolean
+
+    fun fetchUrl(url: String): String?
 }
 
 object NullHost : CatoHost {
@@ -323,20 +407,22 @@ object NullHost : CatoHost {
 
 **Per host implementation policy:**
 
-| Host | terminal | audio | clock | env | CLI | FS |
-|---|---|---|---|---|---|---|
-| `NullHost` (lib tests) | no op | no op | real | null | empty / EOF | null / false |
-| `ReplHost` (CLI REPL) | ANSI stdout | none | real | env vars | real | real disk |
-| `KernelPanicHost` (KP) | Compose text | audio engine | real | game state | no op | VFS |
-| `WebHost` (playground, future) | canvas | WebAudio | `Date.now()` | URL params | none | virtual FS |
+| Host | terminal | audio | clock | env | CLI | FS | Network |
+|---|---|---|---|---|---|---|---|
+| `NullHost` (lib tests) | no op | no op | real | null | empty / EOF | null / false | null |
+| `ReplHost` (CLI REPL) | ANSI stdout | none | real | env vars | real | real disk | `java.net.http` |
+| `KernelPanicHost` (KP) | Compose text | audio engine | real | game state | no op | VFS | not available |
+| `WebHost` (playground, future) | canvas | WebAudio | `Date.now()` | URL params | none | virtual FS | browser `fetch()` |
 
 Every method is optional in the sense that the host picks what is meaningful. No host implements everything.
 
 ---
 
-## 8. The stdlib is dogfooded
+## 9. The stdlib is dogfooded
 
-Every `std.*` function must be implementable as a small catoscript script itself. Example — `std.cli.exit_fail` could be:
+> **Status.** The standard library (`std.*`) is *planned* in the devplan §12 / §14 but **not yet shipped** in the current library. This section documents the rule the stdlib will follow once it lands.
+
+Every `std.*` function must be implementable as a small catoscript script itself. Example — `std.cli.exit_fail` would be:
 
 ```catoscript
 :STD_CLI_EXIT_FAIL $msg
@@ -355,7 +441,7 @@ This rule:
 
 ---
 
-## 9. Implementation discipline
+## 10. Implementation discipline
 
 > Simple is not the absence of advanced. Simple is the absence of unnecessary.
 
@@ -409,7 +495,7 @@ Pick the line where complexity earns its keep. Draw it. Do not cross it on a "wh
 
 ---
 
-## 10. The seam with Kernel Panic
+## 11. The seam with Kernel Panic
 
 Kernel Panic grew catoscript. The language is leaving the building. The plan, in three lines:
 
@@ -423,7 +509,7 @@ The host seam is the boundary. `KernelPanicHost : CatoHost` lives in KP. `NullHo
 
 ---
 
-## 11. The tradition
+## 12. The tradition
 
 This kind of language has a name and a lineage: **literacy first DSL**, sometimes called a **pedagogical language** or **concept first language**. The pattern is always the same:
 
@@ -441,7 +527,7 @@ The pedagogical positioning is a *consequence* of the design discipline, not the
 
 ---
 
-## 12. The naming rule
+## 13. The naming rule
 
 `catoscript` is one word, camelcase. Not `cato-script`. Not `KatoScript`. Not `CATOScript`. The package root is `com.catoscript`. Everything in the repo follows this rule.
 
@@ -449,16 +535,16 @@ In Kotlin source comments and player facing output, no ASCII dashes (`-`) appear
 
 ---
 
-## 13. License
+## 14. License
 
 MIT. Anyone can use, modify, and redistribute catoscript for any purpose; the copyright notice must travel with the code. See `LICENSE` at the repo root.
 
 ---
 
-## 14. Where to read more
+## 15. Where to read more
 
 * `AGENTS.md` — the language first project doc, no Kernel Panic context, daily driver.
-* `catoscript-devplan.md` — the source of truth for what catoscript is and is not. §5 improvements, §10 out of scope, §11 pedagogical positioning, §12 CLI + UI stdlib, §13 implementation discipline, §14 capability surface. If any other document contradicts the devplan, the devplan wins.
+* `catoscript-devplan.md` — the source of truth for what catoscript is and is not. §5 improvements, §10 out of scope, §11 pedagogical positioning, §12 CLI + UI stdlib, §13 implementation discipline, §14 capability surface (Tier 12 to 16 stdlib, including `std.web.fetch`, and the bracket family). If any other document contradicts the devplan, the devplan wins.
 * `samples/` — golden scripts organized by tier.
 * `tools/repl/` — the CLI REPL app.
 

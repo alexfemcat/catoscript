@@ -1,0 +1,5 @@
+meow "before"
+jump :SKIP
+meow "never prints"
+:SKIP
+meow "after"
