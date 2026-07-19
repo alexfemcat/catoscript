@@ -15,7 +15,7 @@ if not exist "%SCRIPT_FILE%" (
     exit /b 1
 )
 
-set "JAR=%USERPROFILE%\.m2\repository\com\catoscript\catoscript\0.3.1-LOCAL\catoscript-0.3.1-LOCAL.jar"
+set "JAR=%USERPROFILE%\.m2\repository\com\catoscript\catoscript\0.3.1-LOCAL\catoscript-0.3.2-LOCAL.jar"
 if not exist "%JAR%" (
     echo cato: artifact not found at %JAR%
     echo cato: run 'gradlew publishToMavenLocal' first

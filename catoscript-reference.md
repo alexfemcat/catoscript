@@ -103,7 +103,7 @@ The parser recognizes **exactly seven keywords**. Anything else is `ParseError("
 | `sniff <expr>` | `Stmt.Sniff(cond, pos)` | `eval(cond)` → must be `Value.Bool`, stored in `lastSniff`, then `ip++` | `RuntimeErrorException("sniff expects a boolean, got <v>")` if result is not Bool |
 | `purr_at :LABEL` | `Stmt.PurrAt(label, pos)` | If `lastSniff?.b == true`: `ip = labels[label]`. Else `ip++` | `RuntimeErrorException("purr_at has no prior sniff")` if no sniff yet; `RuntimeErrorException("unknown label ':<name>'")` if label missing |
 | `hiss_at :LABEL` | `Stmt.HissAt(label, pos)` | Mirror of `purr_at`. Jump if `lastSniff?.b == false` | `RuntimeErrorException("hiss_at has no prior sniff")` if no sniff yet; `RuntimeErrorException("unknown label ':<name>'")` if label missing |
-| `jump :LABEL` | `Stmt.Jump(label, args: List<Expr> = emptyList(), pos)` | **Planned (Phase B.8) shape:** unconditional goto. Resolve `targetIp = labels[label]`; if the target is a `:LABEL` with no params and no args are supplied, set `ip = targetIp` (naked goto). Throws `unknown label ':<name>'` if the label is missing; throws `jump :<name> targets a basket, not a label — use <name>(args) instead` if the target is a basket. Does not consult `lastSniff`. **Currently shipping (Phase B.6, superseded by B.8):** two-branch handler where `stmt.label == "end"` with an active call frame pops the frame and restores caller variables (return opcode), and `jump :NAME args` with a parameter-bearing `:NAME` pushes a call frame and binds args. Those two uses are removed when B.8 lands — call/return move to `name(args)` / `return`, label-param bodies move to `basket name $a $b ... end_basket`. See §5.3 (current `:end` return), §5.4 (current call stack), §13.2 (planned B.8 surface). | `RuntimeErrorException("unknown label ':<name>'")`; (B.6-era only, removed by B.8) `arity mismatch on ':<name>': expected <n> args, got <m>`, `call depth exceeded <n> (recursive label calls)`, `jump :end with no active call frame` |
+| `jump :LABEL` | `Stmt.Jump(label, args: List<Expr> = emptyList(), pos)` | Unconditional goto. If `label` matches a basket name, throws `jump :<name> targets a basket, not a label — use <name>(args) instead`. Otherwise resolves `targetIp = labels[label]` and sets `ip = targetIp`; throws `unknown label ':<name>'` if the label is missing. Does not consult `lastSniff`. Naked `jump :NAME` to a parameterless label shares the caller's scope. The previous two-branch handler (`stmt.label == "end"` as return opcode, `jump :NAME args` as call) was retired in Phase B.8; see §5.5 for the current call/return surface. | `RuntimeErrorException("unknown label ':<name>'")`, `RuntimeErrorException("jump :<name> targets a basket, not a label — use <name>(args) instead")` |
 | `basket NAME $a $b ...` / `end_basket` | `Stmt.Basket(name, params: List<String>, body: List<Stmt>, pos)` *(planned)* | **Planned (Phase B.8).** `basket NAME $a $b` opens a body; statements are collected into `Basket.body` until `end_basket` closes it. At runtime `Basket` is a no-op — the body runs only when called via `name(args)`. `basket` names that collide with reserved keywords throw `ParseError("basket name '<n>' is a reserved keyword")`. See §13.2. |
 | `name(arg, arg, ...)` | `Stmt.Call(name, args: List<Expr>, pos)` *(planned)* | **Planned (Phase B.8).** Disambiguated by "line starts with identifier followed by `(`". At runtime: validate `args.size == baskets[name].params.size` else throw `arity mismatch on basket '<name>': expected <n> args, got <m>`; check `callStack.size < policy.maxCallDepth` else throw `call depth exceeded <n> (recursive basket calls)`; push `CallFrame(returnIp = baskets[name].bodyEndIp, callerVariables = variables.toMap())`; bind params via `for ((paramName, argExpr) in paramsList.zip(args)) variables[paramName] = eval(argExpr, variables)`; `ip = baskets[name].bodyStartIp`. See §13.2. |
 | `return` | `Stmt.Return(pos: SourcePos)` *(planned)* | **Planned (Phase B.8).** Pop the top `CallFrame`, restore the caller's pre-call `variables` snapshot, set `ip = frame.returnIp`. Throws `return with no active call frame` when the stack is empty (same misuse class as the current `jump :end` runtime error — only the spelling changes). See §13.2. |
@@ -330,7 +330,7 @@ done
 
 **Known limitation — args still cannot contain internal whitespace.** `jump :GREET "two words"` fails at `parseExpr` for the trailing `words"` because args are tokenized on whitespace. Pass strings through a variable: `set $msg "two words"` then `jump :GREET $msg`. (The same parser gap affects all `Expr` args and is unchanged from the parser-only era.)
 
-### 5.5 Baskets and calls · the planned (Phase B.8) surface
+### 5.5 Baskets and calls · the current surface (Phase B.8)
 
 Phase B.8 replaces the four-primitive B.6 surface (`jump :NAME args` + `jump :end` + `:NAME $a $b`) with a three-keyword shape that reads top-to-bottom as natural language. The work splits as follows:
 
@@ -629,21 +629,17 @@ data class InterpreterPolicy(
 
 Each item below is a real failure mode an AI assistant will produce without checking this section.
 
-### 11.1 `jump :end` IS the return opcode (Phase B.6 surface — superseded by Phase B.8)
+### 11.1 `jump :end` is no longer a return opcode (Phase B.8)
 
-`jump :end` is not a regular label lookup. When a call frame is active (i.e., the most recent `jump :NAME args...` pushed a frame — see §5.4), `jump :end` pops the frame, restores the caller's pre-call `variables` snapshot, and resumes at `frame.returnIp`. **This is the only way to use `jump :end`.** At top-level (no preceding labeled function call), `jump :end` throws `RuntimeErrorException("jump :end with no active call frame")` — it is a runtime error, not a silent no-op. The `:end` lookup is case-sensitive lowercase: `jump :END` is a regular label lookup that throws unless a `:END` label exists.
-
-**Phase B.8 retires this.** After B.8 lands, `jump :end` is gone — use `return` instead. The pitfall becomes `return requires an active frame` (§11.3 below) rather than `jump :end requires an active frame`. The misuse class is the same; the spelling changes. See §5.5 for the planned surface.
+After B.8, `jump :end` is a regular label lookup — it tries to find `:end` in the labels map and throws `unknown label ':end'` if missing. The "end" name has no special meaning. Use `return` to exit a basket body; see §5.5.
 
 ### 11.2 Labels are case-sensitive
 
 `:end` and `:END` are different labels. Match case exactly. The parser does not fold case.
 
-### 11.3 Label parameters are live (Phase B.6 shipped — superseded by Phase B.8)
+### 11.3 Baskets and parameterless labels (Phase B.8)
 
-`:GREET $name` parses as `Label("GREET", params = ["name"])`, and `jump :GREET "mochi"` parses as `Jump("GREET", args = [Expr.Str("mochi")])`. The runtime binds: on call, args are evaluated in the caller's scope and assigned positionally into the label's params; on `jump :end` inside the body, the caller's pre-call variable snapshot is restored and execution resumes at `frame.returnIp`. There is a call stack (per `MutableList<CallFrame>` in `Interpreter.run()`), and `jump :end` *is* the return opcode when a frame is active. The default recursion guard is `policy.maxCallDepth = 64`; the only labels that push a frame are those with a non-empty `params` list (or those called with args). Naked jumps to parameterless labels remain gotos. See §5.3 (`:end`) and §5.4 (call stack + binding).
-
-**Phase B.8 retires this surface too.** After B.8 lands, `:GREET $name` no longer parses as a parameterized label — the same intent is written `basket greet $name ... end_basket`. The mechanism (call stack, binding, depth guard) survives into B.8; the syntax changes. See §5.5 for the planned surface.
+`:GREET $name` no longer parses as a parameterized label — that surface was retired in B.8. The same intent is written `basket greet $name ... end_basket` (declaration) and `greet("mochi")` (call). Naked `jump :NAME` (no args) to a parameterless label still works as a goto and shares the caller's scope. See §5.5 for the current surface and §5.6 for the retired B.6 surface kept for historical reference.
 
 ### 11.4 No loops
 
@@ -657,9 +653,9 @@ No `+`, `-`, `*`, `/`, `%`. No negative literals. No floats. `Expr.Num` is `Long
 
 `[]` is not in the parser. `for ... in ...` is not in the parser. There is no `set $xs [...]` shape. Tier 6 (§5.9) is the planned landing zone.
 
-### 11.7 No `()` function-call sugar; the current surface is `jump :NAME args` (Phase B.8 will replace it)
+### 11.7 The current call surface is `name(args)`; `jump :NAME args` was retired in Phase B.8
 
-`()` is not in the parser today as a function-call punctuation. `greet("mochi")` throws `cannot parse expression 'greet("mochi")'`, and `:GREET($name)` throws `unknown command ':GREET($name)'`. The Tier 5 surface that ships today is `:GREET $name ... jump :end` declared somewhere, plus `jump :GREET "mochi"` to call. **`()` is the planned Phase B.8 sugar** — `greet("mochi")` will parse as `Stmt.Call("greet", [Expr.Str("mochi")])` once B.8 lands, and the basket body `basket greet $name ... end_basket` replaces the `:GREET $name` declaration. The underlying mechanism — call stack + binding + depth guard — is the B.6 plumbing and survives into B.8 unchanged. See §5.5 for the planned surface and §13.2 for the rollout phase.
+`name(arg, arg, ...)` parses as `Stmt.Call(name, args, pos)` and resolves to a basket of the same name. The deprecated `jump :NAME args` surface (Phase B.6) throws at runtime — the `jump` handler no longer takes args and no longer binds to label params. To migrate an old script, rewrite `jump :NAME a b c` as `name(a, b, c)` and `:NAME $a $b` as `basket name $a $b ... end_basket`. See §5.5 for the current surface and §5.6 for the retired B.6 surface kept for historical reference.
 
 ### 11.7a `return` requires an active call frame (Phase B.8)
 
@@ -847,25 +843,6 @@ Per devplan §2 audit, Phase C, Tier 7. These are pure interpreter work or thin 
 ### 13.2 Future syntax
 
 These change how a script reads, not just which commands exist.
-
-#### Baskets + calls + return — Phase B.8 is the rollout phase (Tier 5)
-
-The Tier 5 surface per devplan §6 Phase B.8 — design is locked, source lands when Phase B.8 ships. Runtime semantics preview in §5.5; current (B.6) semantics in §5.3 (`:end` return) and §5.4 (call stack + binding). **Phase B.8 is the rollout phase for the `()` call punctuation, the `basket` / `end_basket` keywords, and the `return` keyword** — the standalone `()` call punctuation entry that used to live under §13.2 is folded into the B.8 rollout. The `()` form does not run on the current engine; the B.6 form (`jump :NAME args` + `:NAME $a $b` + `jump :end`) is what ships today.
-
-The worked example below uses the B.8 shape and does NOT run on the current engine. The canonical copy lives at `samples/misc/basket-explanation.cato`.
-
-```catoscript
-greet("mochi")                  # call
-  basket greet $name
-    meow "hello, $name"
-    return
-  end_basket
-
-greet("luna")                   # second call
-meow "done"
-```
-
-**Current engine behavior:** `basket`, `end_basket`, `return`, and `greet("mochi")` all throw `ParseError` on the current parser. The B.6 form (`jump :DRINK "milk"` / `:DRINK $beverage ... jump :end`) is what runs today.
 
 #### `for $x in $items ... end_for` (Tier 6, §5.9)
 
