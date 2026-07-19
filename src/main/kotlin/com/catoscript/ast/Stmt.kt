@@ -29,6 +29,12 @@ sealed interface Stmt {
     data class Jump(val label: String, val args: List<Expr> = emptyList(), val pos: SourcePos) : Stmt
     @Serializable @SerialName("Label")
     data class Label(val name: String, val params: List<String> = emptyList(), val pos: SourcePos) : Stmt
+    @Serializable @SerialName("Basket")
+    data class Basket(val name: String, val params: List<String> = emptyList(), val body: List<Stmt>, val pos: SourcePos) : Stmt
+    @Serializable @SerialName("Return")
+    data class Return(val pos: SourcePos) : Stmt
+    @Serializable @SerialName("Call")
+    data class Call(val name: String, val args: List<Expr> = emptyList(), val pos: SourcePos) : Stmt
     @Serializable @SerialName("Comment")
     data class Comment(val text: String, val pos: SourcePos) : Stmt
     @Serializable

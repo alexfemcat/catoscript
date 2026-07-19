@@ -56,7 +56,7 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                 }
                 val stmt = program.stmts[ip]
                 when (stmt) {
-                    is Stmt.Empty, is Stmt.Comment, is Stmt.Label -> { ip++ }
+                    is Stmt.Empty, is Stmt.Comment, is Stmt.Label, is Stmt.Basket, is Stmt.Call, is Stmt.Return -> { ip++ }
                     is Stmt.Meow -> {
                         host.print(valueToString(eval(stmt.expr, variables)))
                         ip++

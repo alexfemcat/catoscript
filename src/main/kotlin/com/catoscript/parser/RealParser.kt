@@ -40,6 +40,10 @@ class ParseError(message: String, val pos: SourcePos, val originPath: String? = 
 object Parser {
     private val includeSkipCounter = java.util.concurrent.atomic.AtomicInteger(0)
 
+    private val RESERVED_BASKET_NAMES = setOf(
+        "meow", "set", "sniff", "purr_at", "hiss_at", "jump", "include", "basket", "return", "end_basket"
+    )
+
     fun parse(
         source: String,
         basePath: String? = null,
@@ -49,9 +53,19 @@ object Parser {
 
         val lines = source.lines()
         val stmts = mutableListOf<Stmt>()
-        for ((index, line) in lines.withIndex()) {
-            val lineNumber = index + 1
-            stmts.addAll(parseLine(line, lineNumber, basePath, inProgress))
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            val lineNumber = i + 1
+            val trimmed = line.trim()
+            if (trimmed.startsWith("basket ") || trimmed == "basket") {
+                val (basket, consumed) = parseBasketBlock(trimmed, lineNumber, lines, i, basePath, inProgress)
+                stmts.add(basket)
+                i += consumed
+            } else {
+                stmts.addAll(parseLine(line, lineNumber, basePath, inProgress))
+                i++
+            }
         }
         return Program(stmts)
     }
@@ -122,10 +136,47 @@ object Parser {
                 val args = tokens.drop(1).map { arg -> parseExpr(arg, pos) }
                 Stmt.Jump(target, args, pos = pos)
             }
+            "return" -> Stmt.Return(pos)
 
             else -> throw ParseError("unknown command '$keyword'", pos)
         }
     }
+
+    private fun parseBasketBlock(
+        firstLine: String,
+        startLineNumber: Int,
+        lines: List<String>,
+        startIndex: Int,
+        basePath: String?,
+        inProgress: Set<String>,
+    ): Pair<Stmt.Basket, Int> {
+        val pos = SourcePos(startLineNumber, 1)
+        val body = firstLine.substring("basket".length).trim()
+        val tokens = body.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (tokens.isEmpty()) throw ParseError("basket expects a name like 'basket greet'", pos)
+        val name = tokens.first()
+        if (name in RESERVED_BASKET_NAMES) {
+            throw ParseError("basket name '$name' is a reserved keyword", pos)
+        }
+        val params = tokens.drop(1).map { token ->
+            if (!token.startsWith("$")) throw ParseError("basket params must start with \$: '$token'", pos)
+            token.substring(1)
+        }
+        val bodyStmts = mutableListOf<Stmt>()
+        var i = startIndex + 1
+        while (i < lines.size) {
+            val bodyLine = lines[i]
+            val bodyTrimmed = bodyLine.trim()
+            if (bodyTrimmed == "end_basket") {
+                val consumed = i - startIndex + 1
+                return Pair(Stmt.Basket(name, params, bodyStmts, pos), consumed)
+            }
+            bodyStmts.addAll(parseLine(bodyLine, i + 1, basePath, inProgress))
+            i++
+        }
+        throw ParseError("basket '$name' missing end_basket", pos)
+    }
+
 
     private fun parseInclude(
         path: String,
