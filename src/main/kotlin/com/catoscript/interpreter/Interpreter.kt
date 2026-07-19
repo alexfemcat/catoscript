@@ -38,13 +38,24 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
 
     private data class CallFrame(val returnIp: Int, val callerVariables: Map<String, Value>)
 
+    private data class BasketInfo(val bodyStartIp: Int, val bodyEndIp: Int, val params: List<String>)
+
     fun run(program: Program): InterpreterResult {
 
         var stepsConsumed = 0L
         try {
-            val labels = buildLabelMap(program)
-            val labelParams = buildLabelParamsMap(program)
-            val labelBodyEnds = buildLabelBodyEnds(program)
+            val flattened = mutableListOf<Stmt>()
+            for (stmt in program.stmts) {
+                flattened.add(stmt)
+                if (stmt is Stmt.Basket) {
+                    for (bodyStmt in stmt.body) flattened.add(bodyStmt)
+                }
+            }
+            val flatProgram = Program(flattened)
+            val labels = buildLabelMap(flatProgram)
+            val labelParams = buildLabelParamsMap(flatProgram)
+            val labelBodyEnds = buildLabelBodyEnds(flatProgram)
+            val baskets = buildBasketsMap(flatProgram)
             val variables = mutableMapOf<String, Value>()
             val callStack = mutableListOf<CallFrame>()
             var lastSniff: Value.Bool? = null
@@ -56,7 +67,14 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                 }
                 val stmt = program.stmts[ip]
                 when (stmt) {
-                    is Stmt.Empty, is Stmt.Comment, is Stmt.Label, is Stmt.Basket, is Stmt.Call, is Stmt.Return -> { ip++ }
+                    is Stmt.Empty, is Stmt.Comment, is Stmt.Label, is Stmt.Basket -> { ip++ }
+                    is Stmt.Return -> {
+                        val frame = callStack.removeLastOrNull()
+                            ?: throw RuntimeErrorException("return with no active call frame")
+                        variables.clear()
+                        variables.putAll(frame.callerVariables)
+                        ip = frame.returnIp
+                    }
                     is Stmt.Meow -> {
                         host.print(valueToString(eval(stmt.expr, variables)))
                         ip++
@@ -82,6 +100,21 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                         if (last.b) ip = labels[stmt.label] ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
                         else ip++
                     }
+                    is Stmt.Call -> {
+                        val info = baskets[stmt.name] ?: throw RuntimeErrorException("unknown basket '${stmt.name}'")
+                        if (stmt.args.size != info.params.size) {
+                            throw RuntimeErrorException("arity mismatch on basket '${stmt.name}': expected ${info.params.size} args, got${stmt.args.size}")
+                        }
+                        if (callStack.size >= policy.maxCallDepth) {
+                            throw RuntimeErrorException("call depth exceeded ${policy.maxCallDepth} (recursive basket calls)")
+                        }
+                        callStack.add(CallFrame(returnIp = ip + 1, callerVariables = variables.toMap()))
+                        for ((paramName, argExpr) in info.params.zip(stmt.args)) {
+                            variables[paramName] = eval(argExpr, variables)
+                        }
+                        ip = info.bodyStartIp
+                    }
+
                     is Stmt.Jump -> {
                         if (stmt.label == "end") {
                             val frame = callStack.removeLastOrNull()
@@ -152,6 +185,22 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                 }
                 map[stmt.name] = endIp
             }
+        }
+        return map
+    }
+
+    private fun buildBasketsMap(program: Program): Map<String, BasketInfo> {
+        val map = mutableMapOf<String, BasketInfo>()
+        var offset = 0
+        for (stmt in program.stmts) {
+            if (stmt is Stmt.Basket) {
+                map[stmt.name] = BasketInfo(
+                    bodyStartIp = offset + 1,
+                    bodyEndIp = offset + 1 + stmt.body.size,
+                    params = stmt.params
+                )
+            }
+            offset += if (stmt is Stmt.Basket) 1 + stmt.body.size else 1
         }
         return map
     }
