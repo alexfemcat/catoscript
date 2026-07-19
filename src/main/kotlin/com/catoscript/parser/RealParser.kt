@@ -89,6 +89,19 @@ object Parser {
                 listOf(Stmt.Label(labelName, params, pos = pos))
             }
             else -> {
+                val parenAt = trimmed.indexOf('(')
+                if (parenAt > 0 && trimmed.endsWith(")")) {
+                    val name = trimmed.substring(0, parenAt)
+                    val argsText = trimmed.substring(parenAt + 1, trimmed.length - 1)
+                    if (name.all { it.isLetterOrDigit() || it == '_' }) {
+                        if (name in RESERVED_BASKET_NAMES) {
+                            throw ParseError("call name '$name' is a reserved keyword", pos)
+                        }
+                        val args = if (argsText.isBlank()) emptyList()
+                        else argsText.split(",").map { parseExpr(it.trim(), pos) }
+                        return listOf(Stmt.Call(name, args, pos))
+                    }
+                }
                 val spaceAt = trimmed.indexOf(' ')
                 val keyword = if (spaceAt == -1) trimmed else trimmed.substring(0, spaceAt)
                 val rest = if (spaceAt == -1) "" else trimmed.substring(spaceAt + 1).trim()
@@ -110,6 +123,8 @@ object Parser {
             "meow" -> Stmt.Meow(parseExpr(rest, pos), pos)
             "set" -> {
                 if (!rest.startsWith("$")) throw ParseError("set expects a variable name like \$name", pos)
+
+
                 val spaceAt = rest.indexOf(' ')
                 if (spaceAt == -1) throw ParseError("set expects \$name followed by a value", pos)
                 val name = rest.substring(1, spaceAt)
