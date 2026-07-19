@@ -57,7 +57,7 @@
       "patterns": [
         {
           "name": "keyword.control.catoscript",
-          "match": "\\b(?:jump|pounce|purr_at|hiss_at|reflex|breed|end_breed|instinct)\\b"
+          "match": "\\b(?:jump|pounce|purr_at|hiss_at|reflex|breed|end_breed|instinct|basket|end_basket|return)\\b"
         },
         {
           "name": "keyword.control.file.catoscript",
