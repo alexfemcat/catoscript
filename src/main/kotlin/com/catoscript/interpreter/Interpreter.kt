@@ -38,34 +38,27 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
 
     private data class CallFrame(val returnIp: Int, val callerVariables: Map<String, Value>)
 
-    private data class BasketInfo(val bodyStartIp: Int, val bodyEndIp: Int, val params: List<String>)
+    private data class BasketInfo(val body: List<Stmt>, val params: List<String>)
 
     fun run(program: Program): InterpreterResult {
 
         var stepsConsumed = 0L
         try {
-            val flattened = mutableListOf<Stmt>()
-            for (stmt in program.stmts) {
-                flattened.add(stmt)
-                if (stmt is Stmt.Basket) {
-                    for (bodyStmt in stmt.body) flattened.add(bodyStmt)
-                }
-            }
-            val flatProgram = Program(flattened)
-            val labels = buildLabelMap(flatProgram)
-            val labelParams = buildLabelParamsMap(flatProgram)
-            val labelBodyEnds = buildLabelBodyEnds(flatProgram)
-            val baskets = buildBasketsMap(flatProgram)
+            val labels = buildLabelMap(program)
+            val labelParams = buildLabelParamsMap(program)
+            val labelBodyEnds = buildLabelBodyEnds(program)
+            val baskets = buildBasketsMap(program)
             val variables = mutableMapOf<String, Value>()
             val callStack = mutableListOf<CallFrame>()
             var lastSniff: Value.Bool? = null
-            var ip = 0
 
-            while (ip < program.stmts.size) {
-                if (stepsConsumed >= policy.maxTotalSteps) {
-                    throw ExecutionLimitReached(stepsConsumed)
-                }
-                val stmt = program.stmts[ip]
+            fun executeFrom(stmts: List<Stmt>, startIp: Int) {
+                var ip = startIp
+                while (ip < stmts.size) {
+                    if (stepsConsumed >= policy.maxTotalSteps) {
+                        throw ExecutionLimitReached(stepsConsumed)
+                    }
+                    val stmt = stmts[ip]
                 when (stmt) {
                     is Stmt.Empty, is Stmt.Comment, is Stmt.Label, is Stmt.Basket -> { ip++ }
                     is Stmt.Return -> {
@@ -74,6 +67,7 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                         variables.clear()
                         variables.putAll(frame.callerVariables)
                         ip = frame.returnIp
+                        return
                     }
                     is Stmt.Meow -> {
                         host.print(valueToString(eval(stmt.expr, variables)))
@@ -108,11 +102,13 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                         if (callStack.size >= policy.maxCallDepth) {
                             throw RuntimeErrorException("call depth exceeded ${policy.maxCallDepth} (recursive basket calls)")
                         }
-                        callStack.add(CallFrame(returnIp = ip + 1, callerVariables = variables.toMap()))
+                        val returnIp = ip + 1
+                        callStack.add(CallFrame(returnIp = returnIp, callerVariables = variables.toMap()))
                         for ((paramName, argExpr) in info.params.zip(stmt.args)) {
                             variables[paramName] = eval(argExpr, variables)
                         }
-                        ip = info.bodyStartIp
+                        executeFrom(info.body, 0)
+                        ip = returnIp
                     }
 
                     is Stmt.Jump -> {
@@ -143,7 +139,10 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                     }
                 }
                 stepsConsumed++
+                }
             }
+
+            executeFrom(program.stmts, 0)
             return InterpreterResult.Completed
         } catch (e: ExecutionLimitReached) {
             return InterpreterResult.BudgetExceeded(e.stepsConsumed)
@@ -191,16 +190,10 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
 
     private fun buildBasketsMap(program: Program): Map<String, BasketInfo> {
         val map = mutableMapOf<String, BasketInfo>()
-        var offset = 0
         for (stmt in program.stmts) {
             if (stmt is Stmt.Basket) {
-                map[stmt.name] = BasketInfo(
-                    bodyStartIp = offset + 1,
-                    bodyEndIp = offset + 1 + stmt.body.size,
-                    params = stmt.params
-                )
+                map[stmt.name] = BasketInfo(body = stmt.body, params = stmt.params)
             }
-            offset += if (stmt is Stmt.Basket) 1 + stmt.body.size else 1
         }
         return map
     }
