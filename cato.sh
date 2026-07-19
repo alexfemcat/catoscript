@@ -15,7 +15,7 @@ if [ ! -f "$SCRIPT_FILE" ]; then
     exit 1
 fi
 
-VERSION="0.3.0-LOCAL"
+VERSION="0.3.2-LOCAL"
 ARTIFACT_DIR="${HOME}/.m2/repository/com/catoscript/catoscript/${VERSION}"
 JAR="${ARTIFACT_DIR}/catoscript-${VERSION}.jar"
 
