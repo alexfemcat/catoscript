@@ -1,0 +1,52 @@
+# Tier 5 demo · baskets, calls, and return.
+#
+# Read this aloud: "we're calling baskets by name with parens,
+# and the body returns control with `return`." Each argument is
+# bound to the parameter of the same position in `basket name $a $b`.
+
+# 1. Single parameter. greet has one slot, $name.
+#    greet("mochi") binds $name = "mochi" inside the body.
+greet("mochi")
+basket greet $name
+  meow "hello, $name"
+  return
+end_basket
+
+# 2. Two parameters in declaration order.
+#    combo("x", "y") binds $a = "x", $b = "y".
+combo("x", "y")
+basket combo $a $b
+  meow "$a $b"
+  return
+end_basket
+
+# 3. The body can run any commands; binding is just the first line.
+#    `set` statements inside the body live in the call's scope,
+#    not the caller's. They vanish when the call returns.
+describe("mochi")
+basket describe $subject
+  meow "$subject is a cat"
+  set $likes "yarn and naps"
+  meow "$subject likes $likes"
+  return
+end_basket
+
+# After the call returns, the caller's variables are unchanged.
+# $likes is not visible here — it lived only inside describe.
+meow "back at top level"
+
+# 4. Basket with no parameters.
+#    silent() works with no args when the basket declares no params.
+silent()
+basket silent
+  meow "..."
+  return
+end_basket
+
+# 5. Naked jump is still a goto (no args, no params on target).
+#    This is the Tier 3 control-flow pattern — no frame is pushed.
+#    Two consecutive meow statements at the top level.
+jump :SKIP
+meow "skipped"
+:SKIP
+meow "naked jumps do not bind or return"

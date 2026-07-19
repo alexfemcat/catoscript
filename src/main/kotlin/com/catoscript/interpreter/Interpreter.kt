@@ -112,30 +112,12 @@ class Interpreter(val host: CatoHost, val policy: InterpreterPolicy = Interprete
                     }
 
                     is Stmt.Jump -> {
-                        if (stmt.label == "end") {
-                            val frame = callStack.removeLastOrNull()
-                                ?: throw RuntimeErrorException("jump :end with no active call frame")
-                            variables.clear()
-                            variables.putAll(frame.callerVariables)
-                            ip = frame.returnIp
-                        } else {
-                            val targetIp = labels[stmt.label]
-                                ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
-                            val paramsList = labelParams[stmt.label] ?: emptyList()
-                            if (stmt.args.isNotEmpty() || paramsList.isNotEmpty()) {
-                                if (stmt.args.size != paramsList.size) {
-                                    throw RuntimeErrorException("arity mismatch on ':${stmt.label}': expected ${paramsList.size} args, got ${stmt.args.size}")
-                                }
-                                if (callStack.size >= policy.maxCallDepth) {
-                                    throw RuntimeErrorException("call depth exceeded ${policy.maxCallDepth} (recursive label calls)")
-                                }
-                                callStack.add(CallFrame(returnIp = labelBodyEnds[stmt.label] ?: (ip + 1), callerVariables = variables.toMap()))
-                                for ((paramName, argExpr) in paramsList.zip(stmt.args)) {
-                                    variables[paramName] = eval(argExpr, variables)
-                                }
-                            }
-                            ip = targetIp
+                        if (stmt.label in baskets) {
+                            throw RuntimeErrorException("jump :${stmt.label} targets a basket, not a label — use ${stmt.label}(args) instead")
                         }
+                        val targetIp = labels[stmt.label]
+                            ?: throw RuntimeErrorException("unknown label ':${stmt.label}'")
+                        ip = targetIp
                     }
                 }
                 stepsConsumed++
