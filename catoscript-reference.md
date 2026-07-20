@@ -12,6 +12,8 @@
 |---|---|---|
 | Lexer + parser + recursive-descent shape | **shipped** | `RealParser.kt` |
 | Typed AST (`Stmt` / `Expr` / `StrPart`) | **shipped** | `Stmt.kt`, `Expr.kt`, `SourcePos.kt` |
+| Analyzer: source-ordered undefined-variable checks in top-level `set` RHS expressions | **partially shipped (Phase B.2)** | `CatoScriptAnalyzer.kt`; `AnalyzerError(message, pos)`. Full `Stmt` walk plus basket/label/arity resolution is B.3 — see §6.1 |
+| `cato compile <file>` core path | **partially shipped (Phase B.2)** | parses → runs the partial analyzer → prints serialized AST JSON to stdout, or prints all analyzer errors. Does **not** write a `.cato.json` sidecar; B.7 MW4 is pending — see §2.1 |
 | Interpreter loop | **shipped** | `Interpreter.kt` |
 | `meow`, `set`, `sniff`, `purr_at`, `hiss_at`, `jump` | **shipped** | exactly these six commands |
 | `include` (parser-only inlining) | **shipped** | `RealParser.kt` line 70 |
@@ -67,7 +69,9 @@ src/main/kotlin/com/catoscript/
 │   ├── CatoHost.kt                     # 14-method SPI
 │   ├── NullHost.kt                     # object — silent defaults
 │   └── ConsoleHost.kt                  # class — stdout/stderr/exit
-└── cli/RunScript.kt                    # `cato run <file.cato>` entry
+├── analyzer/
+│   └── CatoScriptAnalyzer.kt           # B.2 partial checker + AnalyzerResult / AnalyzerError(message, pos)
+└── cli/RunScript.kt                    # `cato run` + partial `cato compile` entry
 
 src/test/kotlin/com/catoscript/
 ├── parser/RealParserTest.kt            # 16 tests covering every parser shape + 3 include tests
@@ -84,10 +88,23 @@ samples/
 ├── misc/1-3.cato                       # Tier 1 + Tier 2 demo (runs today)
 ├── misc/1-4.cato                       # Tier 3 demo (runs today)
 ├── misc/grade.cato                     # Tier 3 if/else-if/else (runs today)
+├── misc/analyzer-undef.cato            # B.2 compile-mode eyeball test (intentionally fails with 3 errors)
 └── misc/hello.cato                     # minimal Tier 1 (runs today)
 ```
 
-**All six sample scripts run in the current library.** Verified by `InterpreterTest.include skips library top-level code on load` and the test runs of the Tier 1/2/3 scripts.
+**The six success-path sample scripts listed above run in the current library.** Verified by `InterpreterTest.include skips library top-level code on load` and the test runs of the Tier 1/2/3 scripts. `samples/misc/analyzer-undef.cato` is different: it is an intentional compile-mode failure used to eyeball B.2's three expression paths; there is no analyzer unit test yet.
+
+### 2.1 CLI run and compile paths
+
+`RunScript.kt` accepts `cato run <file>`, `cato compile <file>`, or `cato <file>` (which defaults to run mode). Compile mode currently does this:
+
+1. Parse the source to `Program`.
+2. Print `Compiling and analyzing...` to stdout.
+3. Run the partial B.2 analyzer described in §6.1.
+4. On success, print `Successfully compiled. AST:` and the serialized AST JSON to stdout.
+5. On failure, print every `error: <message>` to stderr, then `compilation failed: N error(s)`, and return `InterpreterResult.RuntimeError(summary, 0)`. The CLI's common result handler then prints `runtime error: compilation failed: N error(s) (step 0)` and exits 1.
+
+Compile mode does **not** write a `.cato.json` file next to the source; that output behavior remains Phase B.7 MW4. The repo-root `cato.bat` now passes both `run` and `compile` through to `RunScript.kt`; the repo-root `cato.sh` remains a single-file run launcher and does not expose compile mode.
 
 ---
 
@@ -155,6 +172,8 @@ meow "a" "b"                  # ParseError: cannot parse expression '"a" "b"'
 ### 4.3 Variable references
 
 `Expr.VarRef(name: String, pos)`. The `$` prefix is mandatory. `VarRef("x")` reads `variables["x"]`; missing → `RuntimeErrorException("undefined variable '$x'")`.
+
+In `cato compile`, the B.2 analyzer reports this earlier only when the reference appears inside a `Stmt.Set` RHS. It does not yet inspect `meow`, `sniff`, call arguments, basket bodies, or other statement shapes; see §6.1 and §11.19.
 
 ```catoscript
 set $x 10
@@ -469,6 +488,26 @@ data class SourcePos(val line: Int, val column: Int) {
 
 **Every node except `Stmt.Empty` carries `pos: SourcePos`.** Column is intentionally coarse — every command on a line has `column = 1`. Don't rely on column for error messages.
 
+### 6.1 Analyzer result and current B.2 walk
+
+```kotlin
+data class AnalyzerResult(val errors: List<AnalyzerError>) {
+    fun hasErrors(): Boolean = errors.isNotEmpty()
+}
+data class AnalyzerError(val message: String, val pos: SourcePos)
+```
+
+`CatoScriptAnalyzer` owns private `errors: MutableList<AnalyzerError>` and `defined: MutableSet<String>` state. Every `analyze(program)` call clears both collections, walks `Program.stmts` in source order, and returns `AnalyzerResult(errors.toList())`.
+
+The B.2 walk is deliberately partial:
+
+- `Stmt.Set` adds `varName` to `defined` **before** analyzing its RHS. Earlier definitions are visible to later `set` lines, and a self-reference such as `set $x $x` is therefore accepted by this pass.
+- Every other `Stmt` is currently ignored. B.3 owns `Meow`, `Sniff`, jumps, labels, baskets, returns, calls, comments, and empty statements, plus basket/label/arity resolution.
+- `Expr.Num` is a no-op. `Expr.VarRef(name, pos)` emits `AnalyzerError("undefined variable: $name at line N, col M", pos)` when `name` is absent. `Expr.Compare` checks left then right.
+- `Expr.Str` checks each `StrPart.Interpolation` by treating it as a `VarRef`. Because `StrPart.Interpolation` has no position, the diagnostic uses the enclosing `Expr.Str.pos`.
+
+Diagnostics accumulate; analysis does not stop after the first miss. B.2 has an eyeball sample (`samples/misc/analyzer-undef.cato`) but no analyzer unit test.
+
 ---
 
 ## 7. Interpreter model
@@ -708,11 +747,15 @@ They exist in source but `Interpreter.run()` does not construct or consume them.
 
 `KernelPanicHost` is described in the devplan but does not exist in `src/main/`. Don't reference it as if it exists.
 
+### 11.19 The B.2 analyzer is not full compile validation
+
+`cato compile` currently checks undefined variables only in top-level `set` RHS expressions. Undefined reads in `meow`, `sniff`, basket bodies, and call arguments are not diagnosed yet, and basket/label/arity resolution is still B.3 work. Also, the target name is marked defined before its own RHS is checked, so `set $x $x` passes this analyzer slice even though running it from an empty environment still fails. Do not treat a successful B.2 compile as proof that the script is runtime-safe.
+
 ---
 
-## 12. Sample scripts that actually run
+## 12. Sample scripts verified today
 
-These are the scripts verified to work today. The `InterpreterTest` suite runs variants of all of them.
+The success-path scripts below run today. The B.2 analyzer sample in §12.6 intentionally fails compile mode with three diagnostics.
 
 ### 12.1 `samples/misc/hello.cato` — Tier 1 minimum
 
@@ -799,11 +842,32 @@ meow "lib: top-level should NOT print"
   meow "lib: this is unreachable until Tier 5 lands"
 ```
 
+### 12.6 `samples/misc/analyzer-undef.cato` — intentional B.2 compile failure
+
+```catoscript
+set $ok "ready"
+set $a "I want $missing_a"
+set $b $missing_b
+set $c $missing_c < 10
+meow "ok value: $ok"
+```
+
+The three failing `set` RHS expressions exercise string interpolation, a bare `VarRef`, and the left side of `Expr.Compare`. Compile mode reports all three before its summary:
+
+```
+error: undefined variable: $missing_a at line 2, col 1
+error: undefined variable: $missing_b at line 3, col 1
+error: undefined variable: $missing_c at line 4, col 1
+compilation failed: 3 error(s)
+```
+
+This is an eyeball test, not an automated assertion. The final `meow` is not inspected until B.3 because B.2 ignores every non-`Set` statement.
+
 ---
 
 ## 13. Future state · what the language will look like
 
-> **⚠️ CRITICAL.** Every feature in this section is **planned, not shipped**. The current engine will throw `ParseError` or `RuntimeErrorException` on any of it. Use this section to understand what catoscript *will* support once the devplan phases land, but do not run these examples against the current library — they will fail.
+> **⚠️ CRITICAL.** Every feature in this section is **planned, not shipped**. The current engine will throw `ParseError` or `RuntimeErrorException` on the language syntax, or omit the named future behavior where a shipped CLI path is being extended (for example, B.2 compile mode does not create a sidecar file). Use this section to understand what catoscript *will* support once the devplan phases land, but do not treat these examples as current-library contracts.
 >
 > Each entry below cites the devplan section and phase for the feature, gives the exact syntax shape as the devplan describes it, and includes a short example. Where the devplan is explicit (e.g., `std.cli.args()`), the syntax is exact. Where the devplan only mentions a feature in passing (e.g., the §2 audit list of pure-interpreter-work commands), the syntax shape is a *target*, not a commitment — the parser may ship a slightly different shape when the phase lands.
 
@@ -1068,8 +1132,7 @@ Per devplan §10, regex is **not** in scope — these verbs cover 95% of what sc
 
 | Command | Phase | What it does |
 |---|---|---|
-| `cato run <file>` | shipped | Run a `.cato` script |
-| `cato compile <file>` | B.7 MW4 | Parse + emit `.cato.json` next to source |
+| `cato compile <file>` sidecar output | B.7 MW4 | Extend the shipped B.2 core path to emit `.cato.json` next to the source. Current behavior is JSON on stdout only; see §2.1 |
 | `cato fmt <file>` | G | Deterministic formatter |
 | `cato test <file>` | G + std.test | Run `:test_*` labels |
 | `cato` (REPL, no args) | F | Interactive prompt |
@@ -1081,7 +1144,7 @@ Per devplan §10, regex is **not** in scope — these verbs cover 95% of what sc
 
 **Use this section to write code targeting the future engine** — i.e., when the user's tooling has the corresponding phase flag enabled, or when planning ahead.
 
-**Do not use this section to write code against the current library.** Every example here will fail against the current engine with the errors noted inline.
+**Do not use this section to write code against the current library.** Planned language examples fail with the errors noted inline; planned extensions to shipped CLI paths may run without producing the future result (for example, no `.cato.json` sidecar).
 
 **Cross-check:** if a feature here lands in the current engine, move its entry from this section into the appropriate current-state section (commands, syntax, stdlib, CLI). The reference and the devplan both stay source of truth for current state; this section is for the *target* state.
 

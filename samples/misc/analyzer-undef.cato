@@ -1,0 +1,6 @@
+set $ok "ready"
+set $a "I want $missing_a"
+set $b $missing_b
+set $c $missing_c < 10
+meow "ok value: $ok"
+

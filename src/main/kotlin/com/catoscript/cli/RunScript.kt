@@ -63,8 +63,14 @@ fun compileScript(program: com.catoscript.ast.Program): InterpreterResult {
     println("Compiling and analyzing...")
     val analyzerResult = com.catoscript.analyzer.CatoScriptAnalyzer().analyze(program)
     if (analyzerResult.hasErrors()) {
-        val firstError = analyzerResult.errors.first()
-        return InterpreterResult.RuntimeError("Compilation Error: ${firstError.message}", 0)
+        // Phase B.2 MW8 — report every error, not just the first.
+        for (error in analyzerResult.errors) {
+            System.err.println("error: ${error.message}")
+        }
+        val count = analyzerResult.errors.size
+        val summary = "compilation failed: $count error(s)"
+        System.err.println(summary)
+        return InterpreterResult.RuntimeError(summary, 0)
     }
     val jsonString = emit(program)
     println("Successfully compiled. AST:")

@@ -65,8 +65,10 @@ cato run samples\hello.cato
 cato run samples/hello.cato
 ```
 
-(`cato.bat` insists on the `run` keyword; `cato.sh` takes the file
-directly. Both invoke `java -cp <jar> com.catoscript.cli.RunScriptKt <file>`.)
+(`cato.bat` accepts `run`, `compile`, or a bare file path; `cato.sh` takes the file
+directly. Both invoke `java -cp <jar> com.catoscript.cli.RunScriptKt ...`.)
+
+> **Compile-mode launcher status.** `RunScript.kt` and the repo-root `cato.bat` accept `compile`; the repo-root `cato.sh` still accepts only a file. On non-Windows hosts, use `./gradlew run --args="compile <file>"`, `java -jar <fat-jar> compile <file>`, or a generated distribution launcher. B.2 prints JSON to stdout on success; it does not create the Phase B.7 `.cato.json` sidecar.
 
 ## When `./gradlew publishToMavenLocal` is the wrong tool
 

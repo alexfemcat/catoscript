@@ -33,7 +33,7 @@ A new capability lands only if it passes all four checks (§5 approves, §10 doe
 
 - Kotlin 2.2.20, Gradle 9.6.1, JDK 21 toolchain (JDK 25 acceptable on host)
 - JUnit 5 + `kotlin.test`
-- `kotlinx.serialization` for AST persistence (used by `cato fmt`, the analyzer, the stepper)
+- `kotlinx.serialization` for AST persistence (used by the current `cato compile` stdout emit; sidecar persistence, formatter, and stepper remain planned)
 - No Compose. No webview. No browser. The library is JVM-only; hosts render.
 
 **Distribution:**
@@ -100,7 +100,7 @@ CatoScript-Standalone/
 │   ├── interpreter/                  # loop, ScriptContext, IP, instruction budget
 │   ├── runtime/                      # CatoHost, NullHost, Waveform
 │   ├── commands/                     # built-in stdlib (meow, set, sniff, jump, …)
-│   ├── analyzer/                     # CatoScriptAnalyzer (two-pass; moved from KP's CatoDE)
+│   ├── analyzer/                     # CatoScriptAnalyzer (B.2: source-ordered top-level Set-RHS undefined-variable pass; B.3 full walk pending)
 │   └── errors/                       # CatoScriptError, categories, Levenshtein suggestions
 ├── src/test/kotlin/com/catoscript/   # one test file per slice; uses NullHost
 ├── samples/                          # .cato files; golden scripts organized by tier

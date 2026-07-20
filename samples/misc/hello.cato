@@ -2,6 +2,6 @@ meow "hello"
 meow "world"
 
 
-set $name "deez nuts"
+set $name "deez"
 
 meow $name

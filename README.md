@@ -156,6 +156,8 @@ cato run hello.cato
 
 Both `cato run <file>` and `cato <file>` work. The launcher discovers the fat jar next to itself; no classpath, no `~/.m2` lookup.
 
+The generated distribution launcher also accepts `cato compile <file>`. The current B.2 compile path parses the script, checks undefined variables in top-level `set` RHS expressions, and prints the serialized AST JSON to stdout on success or all analyzer diagnostics on failure. It does **not** create a `.cato.json` sidecar yet; that remains Phase B.7 MW4.
+
 ### 2.2 Just run a script (one jar, no install)
 
 If you have a fat jar and a JDK, that's enough:
@@ -173,10 +175,10 @@ For hacking on catoscript itself, the launcher at the repo root (`cato.bat` on W
 ```bash
 ./gradlew publishToMavenLocal
 ./cato.bat run samples\01_first_script\hello.cato   # Windows
-./cato.sh run samples/01_first_script/hello.cato   # Mac/Linux
+./cato.sh samples/01_first_script/hello.cato       # Mac/Linux
 ```
 
-The CLI REPL at `./gradlew :tools:repl:run` lands later in Phase F (devplan §6). For now, `cato run <file>` is the CLI path.
+The CLI REPL at `./gradlew :tools:repl:run` lands later in Phase F (devplan §6). For now, `cato run <file>` is the execution path and the B.2 `cato compile <file>` core is available through `RunScript.kt`. The repo-root `cato.bat` accepts both modes; the repo-root `cato.sh` remains a single-file run launcher. You can also use `./gradlew run --args="compile <file>"`, the fat jar, or a generated distribution launcher for compile mode.
 
 The REPL reads:
 

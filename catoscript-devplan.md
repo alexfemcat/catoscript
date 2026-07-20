@@ -107,7 +107,7 @@ The application plugin's `jar` and `startScripts` tasks are disabled so the regu
 ### Out of KernelPanic-Kotlin-Port (eventually)
 
 - All `com.kp.cato.*` source under `:cato-kotlin` — the candidate set for the new repo.
-- `CatoScriptAnalyzer` (currently in `:desktop/catoDE/`).
+- `CatoScriptAnalyzer` — the standalone B.2 slice now checks undefined variables in top-level `set` RHS expressions; B.3 still owns the full statement walk and basket/label/arity resolution from CatoDE's two-pass analyzer.
 - Error reporting with line numbers, `category` enum, and `suggestions` (Levenshtein).
 - The Golden Scripts Library — moves to `catoscript/samples/` with a CLI loader (`cato run samples/03_modern/bouncing_face.cato`).
 
@@ -383,6 +383,38 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Add `cato compile <file.cato>` CLI command: parses the script, runs the analyzer, emits a serialized AST (`.cato.json` via `kotlinx.serialization`) or fails with diagnostics. Builds on the AST-emit primitive (see Phase B.7 below) and `CatoScriptAnalyzer`. The "refuse to emit if errors" behavior comes free from the analyzer; the compile command is the wiring.
 - [ ] Bump to `0.6.0-LOCAL`, publish
 - [ ] (KP side) CatoDE editor calls the library analyzer; debug overlay (F2) uses the library stepper
+
+### Phase G sub-batches (the `cato compile` work)
+
+> Phase G's static-check core for `cato compile <file.cato>` ships across B.1–B.3. B.2 currently emits successful JSON to stdout; writing `.cato.json` next to the source remains the separate B.7 MW4 checkbox. No version bump at any sub-batch — Phase G bumps to `0.6.0-LOCAL` only after the full analyzer and CLI sidecar work are both complete.
+
+#### Phase B.1 · compile plumbing — shipped in `a5ca509`
+
+- [x] `RunScript.kt`: detect `cato compile <file>` subcommand, route to `compileScript()` *(MW1)*
+- [x] `CatoScriptAnalyzer.kt` skeleton: `AnalyzerResult`, `AnalyzerError(message)`, `analyze()` returns empty errors *(MW2)*
+- [x] `RunScript.compileScript()`: runs analyzer, bails to `RuntimeError` if errors, else prints `emit(program)` *(MW3)*
+- [x] Build status: GREEN *(MW4)*
+
+#### Phase B.2 · analyzer: undefined-variable check (shipped; no bump)
+
+- [x] Private state on `CatoScriptAnalyzer`: `errors: MutableList<AnalyzerError>`, `defined: MutableSet<String>` *(MW1)*
+- [x] `analyze()` resets state, delegates to `analyzeProgram`, returns the snapshot `AnalyzerResult(errors.toList())` *(MW2)*
+- [x] `analyzeProgram(p)` iterates `p.stmts` calling `analyzeStmt(stmt)` in order *(MW3)*
+- [x] `analyzeStmt` handles `Set` for this batch: `Set(name, _, _) -> { defined.add(name); analyzeExpr(stmt.expr) }`; every other `Stmt` is `else -> {}` (B.3's job) *(MW4)*
+- [x] `analyzeExpr` handles `Num` (no-op), `VarRef(name, pos)` (membership check), `Str(parts, _)` (recurse into each `StrPart.Interpolation` as a `VarRef` at the enclosing string position), `Compare(_, l, r, _)` (recurse left + right) *(MW5)*
+- [x] `VarRef` miss → `errors.add(AnalyzerError("undefined variable: \$name at line N, col M", pos))` *(MW6)*
+- [x] `AnalyzerError(val message: String, val pos: SourcePos)`; message format `"undefined variable: $name at line N, col M"` *(MW7)*
+- [x] `RunScript.compileScript` reports **all** errors with `for (error in analyzerResult.errors)` to stderr, prints `compilation failed: N error(s)`, returns `RuntimeError(summary, 0)`, and the CLI exits 1; success path is unchanged *(MW8)*
+- [x] Eyeball test: new `samples/misc/analyzer-undef.cato` with three undefined `$x` reads and one valid `set $x`, `cato compile` reports all three misses with line/col *(MW9)*
+- [x] No bump
+
+#### Phase B.3 · analyzer: full AST walk (every Stmt + basket/label resolution)
+
+- [ ] Extend `analyzeStmt` to handle `Meow`, `Sniff`, `PurrAt`, `HissAt`, `Jump`, `Label`, `Basket`, `Return`, `Call`, `Comment`, `Empty` *(MW1)*
+- [ ] Basket/Call resolution: every `Call(name, args)` must resolve to a `Basket(name, params)` with matching arity; duplicate basket name is an error *(MW2)*
+- [ ] Label resolution: `PurrAt`/`HissAt`/naked-`Jump` targets must exist; same label twice is an error *(MW3)*
+- [ ] Phase G's full static-check portion closes when this lands; the top-level `cato compile` checkbox stays open until B.7 MW4 also writes the `.cato.json` sidecar *(MW4)*
+- [ ] Phase G bumps to `0.6.0-LOCAL` after B.3 and B.7 MW4 complete the analyzer + sidecar compile path *(MW5)*
 
 ### Phase B.7 · AST emit (parked for the lesson after B.6)
 
