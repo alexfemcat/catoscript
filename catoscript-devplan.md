@@ -696,15 +696,9 @@ end_for
 
 Concept taught: *a list is a row of boxes; `for` walks the row one box at a time.* Maps to iteration, arrays, the concept of "many things."
 
-**Tier 7 · State you remember**
+**Tier 7 · State you remember (removed 2026-07-20)**
 
-```catoscript
-bury $score 100      # write to disk
-dig $score            # read from disk
-meow "high score: $score"
-```
-
-Concept taught: *persistence* — variables don't just disappear when the script ends. The player has *learned about state*. (`bury`/`dig` are placeholder names shown here to illustrate how a real concept gets a cat word — they are not currently in the language spec.)
+> Tier 7 was originally planned as the persistence tier with `bury` / `dig` keywords. It was removed because Tier 13's `std.fs.write` / `std.fs.read` already gives persistence through stdlib, and §10 forbids sugar that doesn't collapse lines. The persistence concept is now unlocked at Tier 13 alongside the filesystem. The number is kept as a gap in the ladder so downstream tier references (§5.9, §12, §14) stay stable.
 
 **Tier 8 · Real types (opt-in, §5.9)**
 
@@ -863,20 +857,22 @@ Seven primitives. That's the whole library.
 The player writes a settings screen:
 
 ```catoscript
-:SETTINGS
-  show "Settings" "Tweak your terminal experience"
-  choose "Theme?" ["ocean", "midnight", "paper"] $theme
-  ask "Volume (0-100)" $volume
-  confirm "Save and restart?"
-  purr_at :SAVE_AND_RESTART
-  meow "Settings discarded."
-  jump :end
+settings()
+  basket settings
+    show "Settings" "Tweak your terminal experience"
+    choose "Theme?" ["ocean", "midnight", "paper"] $theme
+    ask "Volume (0-100)" $volume
+    confirm "Save and restart?"
+    save_and_restart($theme, $volume)
+    meow "Settings discarded."
+    return
+  end_basket
 
-:SAVE_AND_RESTART
-  bury $theme
-  bury $volume
-  meow "Saved. Restarting..."
-  std.cli.exit(0)
+  basket save_and_restart $theme $volume
+    # settings saved via std.fs.write (Tier 13)
+    meow "Saved. Restarting..."
+    std.cli.exit(0)
+  end_basket
 ```
 
 That reads out loud. Player wrote a settings screen.
@@ -890,13 +886,15 @@ That reads out loud. Player wrote a settings screen.
 Every `std.*` function must be implementable as a small catoscript script itself. Example — `std.cli.exit_fail` could be:
 
 ```catoscript
-:STD_CLI_EXIT_FAIL $msg
-  std.cli.print_err($msg)    # writes to stderr
-  std.cli.exit(1)            # leaves with error code
-  jump :end
+std_cli_exit_fail("oops")
+  basket std_cli_exit_fail $msg
+    std.cli.print_err($msg)    # writes to stderr
+    std.cli.exit(1)            # leaves with error code
+    return
+  end_basket
 ```
 
-The interpreter resolves `std.cli.exit_fail` to the `:STD_CLI_EXIT_FAIL` label in the stdlib. The player can `cat std/cli/exit_fail.cato` and read the implementation. **The stdlib is the longest comment in the language.**
+The interpreter resolves `std.cli.exit_fail` to the `std_cli_exit_fail` basket in the stdlib. The player can `cat std/cli/exit_fail.cato` and read the implementation. **The stdlib is the longest comment in the language.**
 
 This rule:
 - Forces the stdlib to read out loud (it's written in catoscript)
@@ -923,7 +921,7 @@ Tier 3 · Decision (sniff + purr_at / hiss_at)
 Tier 4 · Repetition (labels + jump)
 Tier 5 · Decomposition (jump :LABEL args as functions)
 Tier 6 · Lists (set $xs [...]; for $x in $xs)
-Tier 7 · State you remember (persistence)
+Tier 7 · *(removed 2026-07-20 — persistence absorbed by Tier 13 std.fs)*
 Tier 8 · Real types (opt-in let)
 **Tier 9 · CLI tools (std.cli: args, exit, stderr)**
 **Tier 10 · Talking to the player (std.ui: ask, show, confirm)**
@@ -1135,25 +1133,26 @@ Without built-in test support, players write bespoke assertion harnesses in ever
   set $items []
   sniff std.list.length($items) == 0
   hiss_at :FAIL_starts_empty
-  jump :end
+  jump :END_OF_TEST                  # naked goto past the FAIL labels
 
 :test_adds_one
   set $items []
   set $items std.list.push($items, "yarn")
   sniff std.list.length($items) == 1
   hiss_at :FAIL_adds_one
-  jump :end
+  jump :END_OF_TEST
 
 :FAIL_starts_empty
   meow "FAIL: list should start empty"
-  jump :end
+  jump :END_OF_TEST
 
 :FAIL_adds_one
   meow "FAIL: push should add one item"
-  jump :end
+
+:END_OF_TEST                        # fall-through marker; runner resumes here
 ```
 
-Run with `cato test script.cato`. The CLI REPL gets `:test` that runs all labels prefixed `:test_`. Each `:test_*` block is a separate sub-script — failures don't stop the others.
+Run with `cato test script.cato`. The CLI REPL gets `:test` that runs all labels prefixed `:test_`. Each `:test_*` block is a separate sub-script — failures don't stop the others. Tests are labels, not baskets: the runner enumerates `:test_*` and runs each body in order, so the `jump :END_OF_TEST` is a naked goto past the `FAIL_*` labels, not a return.
 
 **Passes all four checks:**
 - §5: stdlib + a small runner.
@@ -1276,7 +1275,7 @@ Tier 3   Decision                      sniff + purr_at / hiss_at
 Tier 4   Repetition                    labels + jump
 Tier 5   Decomposition                 jump :LABEL args as functions
 Tier 6   Lists                         set $xs [...]; for $x in $xs
-Tier 7   State you remember            persistence (bury / dig)
+Tier 7   *(removed 2026-07-20 — persistence absorbed by Tier 13 std.fs)*
 Tier 8   Real types                    opt-in let
 Tier 9   CLI tools                     std.cli: args, exit, stderr
 Tier 10  Talking to the player         std.ui: ask, show, confirm
@@ -1346,7 +1345,7 @@ Every method is optional in the sense that the host picks what's meaningful. No 
 - **The four-check process is policy.** Every proposal goes through it. If it doesn't pass all four, it doesn't ship.
 - **The four-item implementation list (§13) is closed.** New stdlib namespaces don't add parser or interpreter work; they're scripts in `samples/std/` plus a registry entry.
 - **The host seam is the only extension point.** New system capabilities (network, audio, filesystem, env) are host methods, not language features.
-- **The tier ladder is complete.** A new player going Tier 1 → 16 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That's a programming curriculum, hidden inside a cat vocabulary.
+- **The tier ladder is complete.** A new player going Tier 1 → 15 learns: cause-and-effect → state → decisions → loops → functions → lists → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That's a programming curriculum, hidden inside a cat vocabulary.
 
 ### What "done" looks like for §14
 

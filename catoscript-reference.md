@@ -25,11 +25,10 @@
 | Call depth budget (`maxCallDepth`) | **shipped** | default 64, enforced on `jump :NAME args` calls — see §5.4. **Phase B.8 routes the same check through the new `name(args)` call form** |
 | `maxStepsPerTick`, `seed` policy fields | **declared, never read** | scaffolding for future hosts |
 | Label parameters + call stack (`:GREET $name`, `jump :GREET arg`, `jump :end`) | **shipped** | the underlying mechanism (label params + call stack + return opcode + `maxCallDepth=64`) shipped in Phase B.6. **Phase B.8 supersedes the surface syntax** — the AST/interpreter plumbing stays, but `jump :NAME args` and `jump :end` are replaced by `name(args)` / `return`, and `:NAME $a $b` is replaced by `basket name $a $b ... end_basket`. See §5, §13.2 |
-| `basket` / `end_basket` / `return` / `name(args)` call form | **planned (Phase B.8)** | replacement surface for the B.6 label-params pattern. The mechanism underneath is the B.6 plumbing; the keywords are new. See §13.2 |
+| `basket` / `end_basket` / `return` / `name(args)` call form | **shipped (Phase B.8)** | replacement surface for the B.6 label-params pattern. The mechanism underneath is the B.6 plumbing; the keywords are new. See §5.5, §13.2 |
 | `for` / `end_for` / `[]` / list literals | **planned** | §5.9 |
 | Bracket operators (`[is]`, `[over]`, `[first]`, `[sort]`, etc.) | **planned** | §14 |
 | `let` (opt-in types) | **planned** | §5.9 |
-| `bury` / `dig` (persistence) | **planned** | Tier 7 |
 | `std.*` (cli, ui, time, fs, test, json, web, random, path, list, str) | **planned** | §12, §14 |
 | Audio commands (`chirp`, `purr`, `hiss`, `vibrato`, `sample`) | **planned** | Phase C — `CatoHost` methods exist but are not routed |
 | Screen commands (`scurry`, `groom`) | **planned** | Phase C |
@@ -104,9 +103,9 @@ The parser recognizes **exactly seven keywords**. Anything else is `ParseError("
 | `purr_at :LABEL` | `Stmt.PurrAt(label, pos)` | If `lastSniff?.b == true`: `ip = labels[label]`. Else `ip++` | `RuntimeErrorException("purr_at has no prior sniff")` if no sniff yet; `RuntimeErrorException("unknown label ':<name>'")` if label missing |
 | `hiss_at :LABEL` | `Stmt.HissAt(label, pos)` | Mirror of `purr_at`. Jump if `lastSniff?.b == false` | `RuntimeErrorException("hiss_at has no prior sniff")` if no sniff yet; `RuntimeErrorException("unknown label ':<name>'")` if label missing |
 | `jump :LABEL` | `Stmt.Jump(label, args: List<Expr> = emptyList(), pos)` | Unconditional goto. If `label` matches a basket name, throws `jump :<name> targets a basket, not a label — use <name>(args) instead`. Otherwise resolves `targetIp = labels[label]` and sets `ip = targetIp`; throws `unknown label ':<name>'` if the label is missing. Does not consult `lastSniff`. Naked `jump :NAME` to a parameterless label shares the caller's scope. The previous two-branch handler (`stmt.label == "end"` as return opcode, `jump :NAME args` as call) was retired in Phase B.8; see §5.5 for the current call/return surface. | `RuntimeErrorException("unknown label ':<name>'")`, `RuntimeErrorException("jump :<name> targets a basket, not a label — use <name>(args) instead")` |
-| `basket NAME $a $b ...` / `end_basket` | `Stmt.Basket(name, params: List<String>, body: List<Stmt>, pos)` *(planned)* | **Planned (Phase B.8).** `basket NAME $a $b` opens a body; statements are collected into `Basket.body` until `end_basket` closes it. At runtime `Basket` is a no-op — the body runs only when called via `name(args)`. `basket` names that collide with reserved keywords throw `ParseError("basket name '<n>' is a reserved keyword")`. See §13.2. |
-| `name(arg, arg, ...)` | `Stmt.Call(name, args: List<Expr>, pos)` *(planned)* | **Planned (Phase B.8).** Disambiguated by "line starts with identifier followed by `(`". At runtime: validate `args.size == baskets[name].params.size` else throw `arity mismatch on basket '<name>': expected <n> args, got <m>`; check `callStack.size < policy.maxCallDepth` else throw `call depth exceeded <n> (recursive basket calls)`; push `CallFrame(returnIp = baskets[name].bodyEndIp, callerVariables = variables.toMap())`; bind params via `for ((paramName, argExpr) in paramsList.zip(args)) variables[paramName] = eval(argExpr, variables)`; `ip = baskets[name].bodyStartIp`. See §13.2. |
-| `return` | `Stmt.Return(pos: SourcePos)` *(planned)* | **Planned (Phase B.8).** Pop the top `CallFrame`, restore the caller's pre-call `variables` snapshot, set `ip = frame.returnIp`. Throws `return with no active call frame` when the stack is empty (same misuse class as the current `jump :end` runtime error — only the spelling changes). See §13.2. |
+| `basket NAME $a $b ...` / `end_basket` | `Stmt.Basket(name, params: List<String>, body: List<Stmt>, pos)` | `basket NAME $a $b` opens a body; statements are collected into `Basket.body` until `end_basket` closes it. At runtime `Basket` is a no-op — the body runs only when called via `name(args)`. `basket` names that collide with reserved keywords throw `ParseError("basket name '<n>' is a reserved keyword")`. See §5.5, §13.2. |
+| `name(arg, arg, ...)` | `Stmt.Call(name, args: List<Expr>, pos)` | Disambiguated by "line starts with identifier followed by `(`". At runtime: validate `args.size == baskets[name].params.size` else throw `arity mismatch on basket '<name>': expected <n> args, got <m>`; check `callStack.size < policy.maxCallDepth` else throw `call depth exceeded <n> (recursive basket calls)`; push `CallFrame(returnIp = baskets[name].bodyEndIp, callerVariables = variables.toMap())`; bind params via `for ((paramName, argExpr) in paramsList.zip(args)) variables[paramName] = eval(argExpr, variables)`; `ip = baskets[name].bodyStartIp`. See §5.5, §13.2. |
+| `return` | `Stmt.Return(pos: SourcePos)` | Pop the top `CallFrame`, restore the caller's pre-call `variables` snapshot, set `ip = frame.returnIp`. Throws `return with no active call frame` when the stack is empty (same misuse class as the old `jump :end` runtime error — only the spelling changed). See §5.5, §13.2. |
 | `include "path.cato"` | (no AST node — parser inlines) | Resolves path against `basePath`, recursively parses, wraps the inlined statements with `Jump __include_skip_N` ... `Label __include_skip_N` | `ParseError` variants: missing path quoting, missing file, cyclic include, unresolvable path |
 
 **Implicit no-op commands** (recognized by the parser, do nothing at runtime):
@@ -334,13 +333,13 @@ done
 
 Phase B.8 replaces the four-primitive B.6 surface (`jump :NAME args` + `jump :end` + `:NAME $a $b`) with a three-keyword shape that reads top-to-bottom as natural language. The work splits as follows:
 
-| B.6 form (today) | B.8 form (planned) | What it is |
+| B.6 form (retired) | B.8 form (current) | What it is |
 |---|---|---|
 | `:GREET $name` | `basket greet $name ... end_basket` | function-body declaration |
 | `jump :GREET "mochi"` | `greet("mochi")` | call site |
 | `jump :end` (inside the body) | `return` | return keyword |
 
-**Worked example — the B.8 shape** (does not run on the current engine; canonical copy at `samples/misc/basket-explanation.cato`):
+**Worked example — the B.8 shape** (canonical copy at `samples/misc/basket-explanation.cato`):
 
 ```catoscript
 greet("mochi")
@@ -669,9 +668,9 @@ After Phase B.8 lands, `name(arg, arg, ...)` is parsed as a `Stmt.Call` *only wh
 
 `std.length("...")`, `std.cli.args()`, etc. throw `cannot parse expression 'std.cli.args()'`. Stdlib namespaces are §12 / §14 work.
 
-### 11.9 No `let`, no `bury`, no `dig`, no `scratch`, no `bat`
+### 11.9 No `let`, no `scratch`, no `bat`
 
-All of these throw `unknown command '<word>'`. They are planned (§5.9, Tier 7, §2 audit) but not in the parser.
+All of these throw `unknown command '<word>'`. They are planned (§5.9, §2 audit) but not in the parser. Persistence (formerly Tier 7 `bury` / `dig`) is unlocked by `std.fs.write` / `std.fs.read` at Tier 13 — see devplan §14.
 
 ### 11.10 `purr_at` / `hiss_at` need a prior sniff
 
@@ -816,8 +815,6 @@ Per devplan §2 audit, Phase C, Tier 7. These are pure interpreter work or thin 
 |---|---|---|---|
 | `scratch $x + N` | C | §2 | Increment a variable |
 | `bat $x - N` | C | §2 | Decrement a variable |
-| `bury $x` | — | §11 Tier 7 | Persist to disk |
-| `dig $x` | — | §11 Tier 7 | Load from disk |
 | `let $name: type = value` | — | §5.9, Tier 8 | Opt-in typed bind |
 | `scurry X Y` | C | §2 | Move cursor (via `host.setCursor`) |
 | `groom` | C | §2 | Clear screen (via `host.clearScreen`) |
@@ -967,17 +964,26 @@ Run with `cato test script.cato`. The CLI REPL gets `:test` that runs all labels
   set $items []
   sniff std.list.length($items) == 0
   hiss_at :FAIL_starts_empty
-  jump :end
+  jump :END_OF_TEST
 
 :test_adds_one
   set $items []
   set $items std.list.push($items, "yarn")
   sniff std.list.length($items) == 1
   hiss_at :FAIL_adds_one
-  jump :end
+  jump :END_OF_TEST
+
+:FAIL_starts_empty
+  meow "FAIL: list should start empty"
+  jump :END_OF_TEST
+
+:FAIL_adds_one
+  meow "FAIL: push should add one item"
+
+:END_OF_TEST
 ```
 
-Each `:test_*` block is a separate sub-script; failures don't stop the others.
+Each `:test_*` block is a separate sub-script; failures don't stop the others. Tests are labels (not baskets) so `jump :END_OF_TEST` is a naked goto past the `FAIL_*` labels — `jump :end` was retired in Phase B.8.
 
 #### `std.json` (Tier 15, §14)
 

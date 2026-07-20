@@ -103,9 +103,9 @@ A conditional branch uses `sniff` + `purr_at` together (you saw that in §1.3). 
 
 Those four scripts cover every shape that ships in the current library: print (`meow`), variable (`set`), decision (`sniff` + `purr_at` / `hiss_at`), and unconditional jump (`jump :LABEL`). The interpreter loops by going back to a label, conditionally via `sniff` + `purr_at`, unconditionally via `jump`. That is the whole engine.
 
-Tier 5 (functions) is a special case. The mechanism — call stack, parameter binding, depth guard, caller-variable restore — ships today via the B.6 surface: `:GREET $name ... jump :end` declares a parameterized label, `jump :GREET "mochi"` calls it. **Phase B.8 is the rollout phase** for a more readable Tier 5: `basket greet $name ... end_basket` declares a basket, `greet("mochi")` calls it, `return` exits. The mechanism is unchanged; only the keywords change. The B.8 surface does not run on the current engine yet — see §5 below for the worked example and the planned rollout.
+Tier 5 (functions) is the natural next step. A function is a basket: `basket greet $name ... end_basket` declares a reusable snippet with a `$name` slot, `greet("mochi")` calls it and binds `$name = "mochi"` inside the body, `return` exits the basket and resumes the caller. See §5 below for the worked example.
 
-Beyond Tier 5 are the *planned* additions — `for` over lists, the `[]` bracket family, the `std.*` standard library, persistence (`bury` / `dig`), and the rest of the tier ladder. Each is locked into the devplan §5.9 / §14 and documented in §5 below. They are not in the current library; they will land in their own commits.
+Beyond Tier 5 are the *planned* additions — `for` over lists, the `[]` bracket family, the `std.*` standard library, and the rest of the tier ladder. Each is locked into the devplan §5.9 / §14 and documented in §5 below. They are not in the current library; they will land in their own commits.
 
 ---
 
@@ -196,7 +196,7 @@ catoscript> :exit
 > **Yes, the words are cat themed.** That is on purpose. The language grew up inside a cat themed game and the vocabulary stuck because it works. You will get used to `meow`, `sniff`, `purr_at`, and `hiss_at` in about ten minutes. If you hate them, the language still works the same — the words just feel weirder.
 
 1. **Read it out loud, then run it.** Every primitive has a one sentence English shape in cat vocabulary. `meow` prints. `sniff` checks a condition. `purr_at` jumps when true. `hiss_at` jumps when false. `jump` always jumps. If you cannot say it out loud and have the program do what you meant, the name is wrong.
-2. **Concepts before keywords.** We do not add a keyword to teach a concept that can be said in English. `if/else` becomes `sniff` + `purr_at` / `hiss_at`. `while` becomes a label + `jump`. `function` becomes `basket greet $name ... end_basket` plus `greet("mochi")` to call — the B.6 surface `jump :LABEL args... ... jump :end` is the interim shape that shipped in `0.3.1-LOCAL`; the readable basket keywords are the planned Phase B.8 surface. You learn the *concept* before you ever see the syntax.
+2. **Concepts before keywords.** We do not add a keyword to teach a concept that can be said in English. `if/else` becomes `sniff` + `purr_at` / `hiss_at`. `while` becomes a label + `jump`. `function` becomes `basket greet $name ... end_basket` plus `greet("mochi")` to call. You learn the *concept* before you ever see the syntax.
 3. **The grammar is closed. The stdlib grows.** New capabilities land as functions under `std.*`, never as new keywords. The grammar is the smallest thing that can express the tier ladder. The standard library is the longest comment in the language, and it is written in catoscript itself, so you can read it.
 
 ---
@@ -213,9 +213,8 @@ The **status** column marks what is in the current library vs. what is locked in
 | 2 | shipped | Remember values between lines | `set $name "..."` |
 | 3 | shipped | Make the script branch on a yes/no question | `sniff ... purr_at ... hiss_at ...` |
 | 4 | shipped | Loop a block of lines via a label and `jump` | `:LOOP ... jump :LOOP` |
-| 5 | shipped (B.6 surface) · B.8 is the planned rollout | Bundle a reusable snippet with inputs (label params + call stack + return) | `jump :DRINK "milk"` *(today)* / `drink("milk")` *(B.8, planned — see §5)* |
+| 5 | shipped | Bundle a reusable snippet with inputs (call stack + parameter binding + `return`) | `drink("milk")` — see §5 |
 | 6 | planned | Store many values in a row and walk them (`[]` lists + `for`/`[over]`) | `for $toy in $toys ... end_for` |
-| 7 | planned | Save values to disk and load them next run | `bury $score ... dig $score` |
 | 8 | planned | Promise a variable will hold a specific shape (opt-in `let`) | `let $count: num = 0` |
 | 9 | planned | Build a command line tool that takes flags and files | `std.cli.args()`, `std.cli.exit(...)` |
 | 10 | planned | Ask the user a question, show a message, confirm yes/no | `ask`, `show`, `confirm` |
@@ -226,7 +225,7 @@ The **status** column marks what is in the current library vs. what is locked in
 | 15 | planned | Read and write JSON so your script can talk to other programs | `std.json.parse(...)`, `std.json.stringify(...)` |
 | 16 | planned | Reach the network through the host (fetch a URL) | `std.web.fetch("https://...")` |
 
-**Tiers 1 to 5 ship today. Tiers 6 to 16 are locked in the devplan and will land in their own commits, each behind its own feature flag.** A new player going Tier 1 → 16 learns: cause-and-effect → state → decisions → loops → functions → lists → persistence → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That is a programming curriculum, hidden inside a cat vocabulary. No "you will need to learn X first" gap — but most of the ladder is still ahead of the library.
+**Tiers 1 to 5 ship today. Tiers 6 to 15 are locked in the devplan and will land in their own commits, each behind its own feature flag.** A new player going Tier 1 → 15 learns: cause-and-effect → state → decisions → loops → functions → lists → types → CLI → interactive UI → state-machine UIs → libraries → filesystem → testing → interop → network-via-host. That is a programming curriculum, hidden inside a cat vocabulary. No "you will need to learn X first" gap — but most of the ladder is still ahead of the library.
 
 ---
 
@@ -288,11 +287,11 @@ $toys   [contains? "yarn"] $has_yarn  # has this item?
 
 Every bracket is sugar for a `std.list.*` or `std.random.*` function. The bracket is the readable form; the stdlib function is canonical. **The bracket family is closed after this round.** Further expansion goes through the §10 amendment process.
 
-### `()` for function calls · and the Tier 5 surface replacement (Phase B.8)
+### `()` for function calls · the Tier 5 surface
 
-> **Status.** Phase B.8 is the rollout phase for the readable Tier 5 surface. The underlying mechanism (Tier 5 call stack + parameter binding + depth guard) shipped in `0.3.1-LOCAL` as `jump :NAME args` (call) + `:NAME $a $b` (declaration) + `jump :end` (return). **B.8 replaces that surface** with `basket` / `end_basket` / `return` / `name(args)` so a function reads top-to-bottom as natural language. The B.6 form keeps running on the current engine; the B.8 form does not.
+> A function is a basket. `basket NAME $a $b ... end_basket` declares a reusable snippet with named slots. `name(arg, arg)` calls it and binds each argument to the matching slot inside the body. `return` exits the basket and resumes the caller.
 
-The B.8 surface (planned):
+The shape:
 
 ```catoscript
 greet("mochi")              # call
@@ -304,12 +303,12 @@ greet("mochi")              # call
 greet("luna")               # second call
 ```
 
-**Coexistence with labels.** `:NAME` labels survive B.8 as naked-goto / `purr_at` / `hiss_at` targets and fall-through markers. `:NAME` can no longer carry a parameter list — that intent moves to `basket NAME $a $b ... end_basket`. The colon-prefix stays a label-only affordance; baskets do not use it. Naked `jump :NAME` (no args) keeps working unchanged; `jump :NAME args` and `jump :end` are removed.
+**Coexistence with labels.** `:NAME` labels stay for naked gotos, `purr_at` / `hiss_at` targets, and fall-through markers. The colon-prefix is a label-only affordance — baskets do not use it. Naked `jump :NAME` (no args) keeps working unchanged.
 
-> **Worked example — the planned B.8 shape.** Tier 5 after Phase B.8 will read like this:
+> **Worked example.** Tier 5 reads like this:
 >
 > ```catoscript
-> # THIS IS AN EXPLANATION AND WILL NOT RUN LIKE A NORMAL CATO FILE
+> # THIS IS AN EXPLANATION OF HOW A BASKET RUNS. IT IS A VALID .CATO FILE AND WILL RUN.
 >
 > # ---- simple explanation ----
 >
@@ -362,7 +361,7 @@ greet("luna")               # second call
 >   # hello, luna
 > ```
 >
-> The file uses the planned Phase B.8 shape (`basket` / `end_basket` / `return` keywords) which replaces the `:NAME` / `jump :end` convention shown above. It does not run on the current engine — it previews what Tier 5 will read like after B.8 lands. The canonical copy lives at [`samples/misc/basket-explanation.cato`](../../samples/misc/basket-explanation.cato); see `catoscript-devplan.md` §6 for the rollout.
+> The canonical copy lives at [`samples/misc/basket-explanation.cato`](../../samples/misc/basket-explanation.cato).
 
 ---
 
@@ -495,7 +494,7 @@ basket std_cli_exit_fail $msg
 end_basket
 ```
 
-(The example uses the planned Phase B.8 basket surface because stdlib lands after B.8 — the B.6 form `:STD_CLI_EXIT_FAIL $msg ... jump :end` was the interim shape that ships in `0.3.1-LOCAL`.)
+(The stdlib is not in the current library yet — this example shows the rule the stdlib will follow once it lands.)
 
 The interpreter resolves `std.cli.exit_fail` to the `std_cli_exit_fail` basket in the stdlib. The player can `cat std/cli/exit_fail.cato` and read the implementation. **The stdlib is the longest comment in the language.**
 
