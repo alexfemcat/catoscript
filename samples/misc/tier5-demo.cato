@@ -47,6 +47,6 @@ end_basket
 #    This is the Tier 3 control-flow pattern — no frame is pushed.
 #    Two consecutive meow statements at the top level.
 jump :SKIP
-meow "skipped"
+meow "skipped, does not show"
 :SKIP
-meow "naked jumps do not bind or return"
+meow "naked jumps, end of script"
