@@ -1,15 +1,27 @@
 #!/usr/bin/env bash
 # cato: launcher for the catoscript CLI.
-# Usage: cato run <file.cato>
+# Usage: cato [run|compile] <file.cato>
+#        cato <file.cato>          (defaults to run)
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-    echo "usage: cato run <file.cato>" >&2
+if [ "$#" -eq 0 ] || [ "$#" -gt 2 ]; then
+    echo "usage: cato [run|compile] <file.cato>" >&2
     exit 2
 fi
 
-SCRIPT_FILE="$1"
+if [ "$#" -eq 2 ]; then
+    if [ "$1" != "run" ] && [ "$1" != "compile" ]; then
+        echo "usage: cato [run|compile] <file.cato>" >&2
+        exit 2
+    fi
+    MODE="$1"
+    SCRIPT_FILE="$2"
+else
+    MODE="run"
+    SCRIPT_FILE="$1"
+fi
+
 if [ ! -f "$SCRIPT_FILE" ]; then
     echo "cato: file not found: $SCRIPT_FILE" >&2
     exit 1
@@ -31,4 +43,4 @@ SERIALIZATION_JARS=$(find "${DEPS_DIR}/org/jetbrains/kotlinx" -name '*.jar' 2>/d
 
 CP="${JAR}:${KOTLIN_JARS}${SERIALIZATION_JARS}"
 
-exec java -cp "$CP" com.catoscript.cli.RunScriptKt "$SCRIPT_FILE"
+exec java -cp "$CP" com.catoscript.cli.RunScriptKt "$MODE" "$SCRIPT_FILE"
