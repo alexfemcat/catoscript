@@ -1,0 +1,7 @@
+greet("mochi") # "mochi" argument calls the basket named greet, which is defined below
+  basket greet $name #basket named greet starts 
+    meow "hello, $name" # the cat says hello to the name passed in, "mochi"
+    return # done with basket, go back to where you were before jumping in. BASKETS ONLY RUN WHEN CALLED
+  end_basket #basket named greet ends
+
+  greet("luna") # "luna" argument calls the basket named greet
