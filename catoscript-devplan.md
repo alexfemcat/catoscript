@@ -507,26 +507,26 @@ greet("mochi")
 
 This file is the canonical reference shape for the rewrite of `samples/misc/tier5-demo.cato` and the test scripts in `BasketInterpreterTest`.
 
-- [ ] Add `Stmt.Basket(name: String, params: List<String>, body: List<Stmt>, pos: SourcePos)` to AST
-- [ ] Add `Stmt.Return(pos: SourcePos)` to AST
-- [ ] Add `Stmt.Call(name: String, args: List<Expr>, pos: SourcePos)` to AST (the call site — a new statement shape)
-- [ ] Parser: `basket name $a $b` opens a body; statements collected into `Basket.body` until `end_basket` closes it
-- [ ] Parser: `return` recognized as a no-arg statement
-- [ ] Parser: `name(arg, arg, ...)` parsed as `Stmt.Call` — disambiguate by "line starts with identifier followed by `(`"; runtime arity check catches misspellings
-- [ ] Parser: reject basket names that match any reserved keyword (`meow`, `set`, `sniff`, `purr_at`, `hiss_at`, `jump`, `include`, `basket`, `return`, `end_basket`) — `ParseError("basket name '<n>' is a reserved keyword")`
-- [ ] Interpreter: build `baskets: Map<String, BasketInfo>` (name → body-start ip + params list) once at `run()` start
-- [ ] Interpreter: `Stmt.Basket` is a no-op at runtime — bodies run only when called
-- [ ] Interpreter: `Stmt.Call` validates arity against basket params, checks `maxCallDepth`, pushes `CallFrame(returnIp = bodyEndIp, callerVariables = variables.toMap())`, binds args to params, jumps to body start
-- [ ] Interpreter: `Stmt.Return` pops current frame, restores caller's variables, resumes at `frame.returnIp` — throws `return with no active call frame` if stack is empty
-- [ ] Remove the two-branch handler from `Stmt.Jump`: drop the `stmt.label == "end"` branch (return path → `Stmt.Return`); drop the args/params call branch (call path → `Stmt.Call`); `jump` becomes the unconditional goto only (no args, target has no params)
-- [ ] Interpreter: `Stmt.Jump` rejects targets that are baskets, not labels — `RuntimeErrorException("jump :<name> targets a basket, not a label — use <name>(args) instead")`. Keeps `jump` = label-goto and `name(args)` = basket-call strictly separated.
-- [ ] Tests: new `BasketInterpreterTest` covers declare / single-arg call / multi-arg call / return / arity mismatch / depth exceeded / naked-jump-still-goto / basket with no params
-- [ ] Rewrite `samples/misc/tier5-demo.cato` to use the new shape (drop the `jump`-as-call and `jump`-as-return examples; the four sections become four `basket` examples + one naked-goto example). Pedagogical draft with detailed comments already lives at `samples/misc/basket-explanation.cato` — use it as the reference for the new shape and comment style.
-- [ ] Audit other samples (`samples/misc/1-4.cato`, `samples/misc/grade.cato`, `samples/include-demo-v1/main.cato`) for `jump :NAME args` or `jump :end` uses; migrate naked `jump :NAME` gotos to remain unchanged, rewrite call/return uses
-- [ ] All existing tests stay green (or migrate to the new shape; `LabelParamsInterpreterTest` is renamed/replaced by `BasketInterpreterTest`)
-- [ ] Editor: `editor/syntaxes/catoscript.tmLanguage.json` adds `basket`, `end_basket`, `return` to the keyword set; the mid-line label-ref grammar rule is updated for `()` call punctuation
-- [ ] Bump to `0.3.2-LOCAL`, publish *(breaking change to the call form — any script using `jump :NAME args` or `jump :end` must rewrite; naked `jump :NAME` gotos keep working unchanged)*
-- [ ] Update docs accordingly: `catoscript-reference.md` §3 (commands table — drop the Jump two-branch handler description), §5 (replace Labels-and-jumps section with Baskets-and-calls), §11 (drop 11.1 `:end` return opcode and 11.3 label parameters live; add `return` requires active frame and `()` is the call site); update `catoscript-reference.md` §13.2 to remove `()` from "Future syntax" (now shipped); update this devplan's Phase B.6 entry to point at B.8 as the source of truth for Tier 5
+- [x] Add `Stmt.Basket(name: String, params: List<String>, body: List<Stmt>, pos: SourcePos)` to AST
+- [x] Add `Stmt.Return(pos: SourcePos)` to AST
+- [x] Add `Stmt.Call(name: String, args: List<Expr>, pos: SourcePos)` to AST (the call site — a new statement shape)
+- [x] Parser: `basket name $a $b` opens a body; statements collected into `Basket.body` until `end_basket` closes it
+- [x] Parser: `return` recognized as a no-arg statement
+- [x] Parser: `name(arg, arg, ...)` parsed as `Stmt.Call` — disambiguate by "line starts with identifier followed by `(`"; runtime arity check catches misspellings
+- [x] Parser: reject basket names that match any reserved keyword (`meow`, `set`, `sniff`, `purr_at`, `hiss_at`, `jump`, `include`, `basket`, `return`, `end_basket`) — `ParseError("basket name '<n>' is a reserved keyword")`
+- [x] Interpreter: build `baskets: Map<String, BasketInfo>` (name → body-start ip + params list) once at `run()` start
+- [x] Interpreter: `Stmt.Basket` is a no-op at runtime — bodies run only when called
+- [x] Interpreter: `Stmt.Call` validates arity against basket params, checks `maxCallDepth`, pushes `CallFrame(returnIp = bodyEndIp, callerVariables = variables.toMap())`, binds args to params, jumps to body start
+- [x] Interpreter: `Stmt.Return` pops current frame, restores caller's variables, resumes at `frame.returnIp` — throws `return with no active call frame` if stack is empty
+- [x] Remove the two-branch handler from `Stmt.Jump`: drop the `stmt.label == "end"` branch (return path → `Stmt.Return`); drop the args/params call branch (call path → `Stmt.Call`); `jump` becomes the unconditional goto only (no args, target has no params)
+- [x] Interpreter: `Stmt.Jump` rejects targets that are baskets, not labels — `RuntimeErrorException("jump :<name> targets a basket, not a label — use <name>(args) instead")`. Keeps `jump` = label-goto and `name(args)` = basket-call strictly separated.
+- [x] Tests: new `BasketInterpreterTest` covers declare / single-arg call / multi-arg call / return / arity mismatch / depth exceeded / naked-jump-still-goto / basket with no params
+- [x] Rewrite `samples/misc/tier5-demo.cato` to use the new shape (drop the `jump`-as-call and `jump`-as-return examples; the four sections become four `basket` examples + one naked-goto example). Pedagogical draft with detailed comments already lives at `samples/misc/basket-explanation.cato` — use it as the reference for the new shape and comment style.
+- [x] Audit other samples (`samples/misc/1-4.cato`, `samples/misc/grade.cato`, `samples/include-demo-v1/main.cato`) for `jump :NAME args` or `jump :end` uses; migrate naked `jump :NAME` gotos to remain unchanged, rewrite call/return uses
+- [x] All existing tests stay green (or migrate to the new shape; `LabelParamsInterpreterTest` is renamed/replaced by `BasketInterpreterTest`)
+- [x] Editor: `editor/syntaxes/catoscript.tmLanguage.json` adds `basket`, `end_basket`, `return` to the keyword set; the mid-line label-ref grammar rule is updated for `()` call punctuation
+- [x] Bump to `0.3.2-LOCAL`, publish *(breaking change to the call form — any script using `jump :NAME args` or `jump :end` must rewrite; naked `jump :NAME` gotos keep working unchanged)*
+- [ ] Update docs accordingly: `catoscript-reference.md` §3 (commands table — drop the Jump two-branch handler description), §5 (replace Labels-and-jumps section with Baskets-and-calls), §11 (drop 11.1 `:end` return opcode and 11.3 label parameters live; add `return` requires active frame and `()` is the call site); update `catoscript-reference.md` §13.2 to remove `()` from "Future syntax" (now shipped); update this devplan's Phase B.6 entry to point at B.8 as the source of truth for Tier 5 *(partial — §11.7a/§11.7b stale "After B.8 lands" wording was dropped in commit `bc53620`; §3 row + §5.5 stub shipped. Remaining: full §5 rewrite from "Labels-and-jumps" to "Baskets-and-calls" frame, §13.2 "()" removal, and the B.6 entry's source-of-truth redirect. Worth a follow-on docs pass.)*
 
 ### Phase I · Editor support (VS Code now, IntelliJ later)
 
