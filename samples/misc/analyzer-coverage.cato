@@ -1,0 +1,142 @@
+# analyzer-coverage.cato — exercises every Phase-B.3 analyzer branch.
+#
+# Run with:  cato compile samples/misc/analyzer-coverage.cato
+#
+# Sections A/B/C are split by '# --- SECTION <name> ---' markers.
+# Section A is clean (zero analyzer errors). Sections B and C demonstrate
+# either a caught defect (B) or a known analyzer gap (C).
+#
+# Expected analyzer output (run `cato compile` and compare):
+#   Section A   -> 0 errors          (clean)
+#   Section B   -> 11 errors total   (each comment block tags its expected error(s))
+#   Section C   -> 1 of 4 gaps fires a misleading diagnostic; 3 are silent
+#                  (the comments per gap are the spec)
+#   Total       -> 13 errors, exit code 1
+
+
+# --- SECTION A: clean code (analyzer should report 0 errors) ----------
+
+set $a 10
+set $b 20
+set $msg "values are $a and $b"
+set $cmp $a < $b
+
+meow "starting"
+meow $msg
+meow $cmp
+
+sniff $cmp
+purr_at :ALRIGHT
+hiss_at :WRONG_LABEL
+:WRONG_LABEL
+:ALRIGHT
+meow "after jump targets"
+
+
+# --- SECTION B: defects the analyzer SHOULD catch --------------------
+
+# B.1 — undefined variable in `set` RHS (plain VarRef)
+# expected: "undefined variable: $missing_rhs at ..."
+set $bad1 $missing_rhs
+
+# B.2 — undefined variable inside string interpolation
+# expected: "undefined variable: $missing_interp at ..."
+set $bad2 "hello $missing_interp"
+
+# B.3 — undefined variable in `meow` RHS
+# expected: "undefined variable: $missing_meow at ..."
+meow $missing_meow
+
+# B.4 — undefined variable in `meow` interpolation
+# expected: "undefined variable: $missing_meow_interp at ..."
+meow "value: $missing_meow_interp"
+
+# B.5 — undefined variable in `sniff` Compare (both branches)
+# expected: two errors
+sniff $missing_left < $missing_right
+
+# B.6 — `purr_at` to a label that does not exist
+# expected: "target label 'GHOST' not found"
+purr_at :GHOST
+
+# B.7 — `hiss_at` to a label that does not exist
+# expected: "target label 'PHANTOM' not found"
+hiss_at :PHANTOM
+
+# B.8 — `jump` to a label that does not exist
+# expected: "jump target label 'VOID' not found"
+jump :VOID
+
+# B.9 — basket named after a reserved keyword (`meow`, `set`, `basket`, ...)
+# NOTE: this is enforced by the PARSER at RealParser.kt:174 ("basket name
+# '<x>' is a reserved keyword"), not by the analyzer. The analyzer's
+# `reservedKeywords.contains(stmt.name)` check (CatoScriptAnalyzer.kt:74)
+# is therefore unreachable through normal parsing — it appears to be
+# belt-and-suspenders. To exercise it directly would require hand-built
+# ASTs; omitted here. If you remove the parser check, this branch fires:
+#
+#   basket set $x
+#     meow "this should not analyze"
+#   end_basket
+#
+# Expected analyzer error: "basket name 'set' conflicts with a reserved keyword"
+
+# B.10 — call to a basket that was never defined
+# expected: "call to undefined basket 'never_defined'"
+never_defined("arg")
+
+# B.11 — call to a defined basket with the wrong arity
+# expected: "basket call 'two_arg' expected 2 arguments, but received 1"
+# (body kept empty — see C.4 for the basket-param gap)
+basket two_arg $p $q
+end_basket
+two_arg("only_one")
+
+
+# --- SECTION C: known analyzer gaps (no diagnostic, or wrong message) -
+
+# C.1 — self-referential `set` is silently accepted.
+# The analyzer adds `$self` to `defined` BEFORE analyzing the RHS, so the
+# RHS VarRef sees the name as defined. No error is emitted.
+# Real programs should not rely on this; the runtime sees `$self` as unset
+# on the first read in other languages' terms, but CatoScript has no
+# left-vs-right semantics here — analyzer just doesn't model it.
+set $self $self
+meow $self
+
+# C.2 — `jump :basket_name` is NOT recognized as a basket call.
+# The analyzer checks `labelMap` only. A `jump :greet` where `greet` is a
+# basket emits a generic "jump target label 'greet' not found" error
+# (misleading — the basket DOES exist, just not as a label).
+# Better message exists at runtime (`RuntimeErrorException("jump :<name>
+# targets a basket...")`) but the analyzer doesn't reach it.
+# (body kept empty — see C.4 for the basket-param gap)
+basket greet $who
+end_basket
+jump :greet "world"
+
+# C.4 — basket parameters are NOT bound by the analyzer.
+# The analyzer's `defined` set only tracks top-level `set` bindings. A
+# basket body that references its own parameter (`$p` below) is flagged
+# as undefined, even though the runtime WILL bind the parameter at call
+# time. So `basket demo $p / meow $p / end_basket` reports
+# "undefined variable: $p" even when the call site supplies a value.
+# (If the analyzer were tightened to add basket params to `defined`
+# while walking the body, both this and the spurious "$p"/"$q" errors
+# from B.11's body would disappear.)
+basket demo $p
+  meow $p
+end_basket
+demo("bound at runtime")
+
+# C.3 — duplicate basket names silently overwrite.
+# The pre-pass `basketsMap[name] = ...` keeps only the last body. No
+# analyzer diagnostic. The first basket's body is dropped; the runtime
+# will only ever execute the second one.
+# (Bodies are kept empty so the analyzer-blind basket-param gap doesn't
+# pollute this test with unrelated "$x undefined" errors.)
+basket dup $x
+end_basket
+basket dup $x
+end_basket
+dup("only_call_runs_second")
