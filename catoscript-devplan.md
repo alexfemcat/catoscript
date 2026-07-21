@@ -6,6 +6,29 @@
 
 ---
 
+## Status dashboard
+
+| Phase   | What                                                                                                  | State                                                                                  | Version               | Last commit  |
+|---------|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|-----------------------|--------------|
+| A       | Stand up the new repo                                                                                 | ✅ shipped                                                                             | `0.1.0-LOCAL`         | `4c03e72`    |
+| B + B.5 | Move engine; parser + AST + interpreter loop + host wiring                                            | ✅ shipped                                                                             | `0.3.0-LOCAL`         | `44cbdb4`    |
+| B.6     | Label params + call stack (Tier 5 v1)                                                                 | ↩️ mechanism shipped; surface syntax superseded by B.8                                 | `0.3.1-LOCAL`         | `d916fc7`    |
+| C       | `CatoHost` SPI + `NullHost` + `meow` routing                                                          | 🚧 partial — `meow` routed; audio/screen/env primitives were never written (N/A)        | `0.3.0-LOCAL`         | `06cbb35`    |
+| D       | KP consumes the library                                                                               | ⏳ pending — KP-side work, external to this repo                                        | —                     | —            |
+| E       | Real parser + AST (folded into B.5)                                                                   | ✅ mechanism shipped; ⏳ `0.4.0-LOCAL` bump parked on KP click-to-line                  | (next bump)           | `44cbdb4`    |
+| F       | Standalone CLI REPL                                                                                   | 🚧 partial — `cato` / `cato.bat` launchers shipped; `tools/repl/` + `ReplHost` pending | `0.3.2-LOCAL`         | `6c3ecf4`    |
+| G       | Analyzer + `cato compile` + stepper                                                                   | 🚧 partial — B.1 / B.2 / B.3 shipped; stepper, fmt, `.cato.json` sidecar pending        | (next bump `0.6.0`)   | `6fd9a5d`    |
+| └ B.7   | AST emit (`.cato.json`)                                                                               | 🚧 MW1–MW3 shipped; MW4 CLI sidecar + MW5 tests pending                                | —                     | `a3a5b41`    |
+| └ B.8   | `basket` / `end_basket` / `return` / `name(args)`                                                     | ✅ shipped *(docs sync partial — see last checkbox)*                                    | `0.3.2-LOCAL`         | `bc53620`    |
+| I       | Editor support                                                                                        | ✅ VS Code shipped; ⏳ IntelliJ deferred                                                | —                     | `ac07563`    |
+| H       | Real publishing (Maven Central / GitHub Packages)                                                     | ⏳ blocked on API stability                                                            | (target `0.6.0+`)     | —            |
+
+**Current shipped version:** `0.3.2-LOCAL` (B.8). The next bump is whichever lands first of: E's click-to-line (`0.4.0-LOCAL`), F's REPL (`0.5.0-LOCAL`), or G's full analyzer + sidecar (`0.6.0-LOCAL`).
+
+**How to read this doc.** The table above is the at-a-glance view. Each phase section below retains its full checklist + prose for the work — scan the table for "what's open," then jump to that section for context. Phase headers carry the same status tag inline so the table and the body don't drift.
+
+---
+
 ## 1. Why extract
 
 Today, the language is *embedded* in a game repo. That has three costs:
@@ -284,7 +307,7 @@ Nine bracket operators plus the `[]` literal and `[over]` walker. Family is grou
 
 Each step is a commit. Each commit ships green. Each commit has a checkbox here and a corresponding lesson slice in `docs/KOTLIN_PORT_PLAN.md` §17.
 
-### Phase A · Stand up the new repo (no KP changes yet)
+### Phase A · Stand up the new repo (no KP changes yet) · ✅ shipped (`0.1.0-LOCAL`, `4c03e72`)
 
 - [x] Create `catoscript/` repo with empty Gradle Kotlin/JVM project
 - [x] Add `AGENTS.md` (language-first), `README.md` (30-second quickstart)
@@ -294,7 +317,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > Phase A shipped the CatoHost SPI alongside the empty library, which is technically Phase C work. The reasoning: an empty jar is a hollow publish, and NullHost with its tests is the smallest possible proof that the SPI is real. Phase C's checkbox for "add CatoHost and NullHost" can be checked off when KP actually routes commands through it (the dependency direction the other way around).
 
-### Phase B · Move the engine verbatim (behavior-preserving)
+### Phase B · Move the engine verbatim (behavior-preserving) · ✅ shipped (`0.3.0-LOCAL`, `44cbdb4` via the Phase B.5 fold-in — see Phase B.5 below)
 
 - [x] Move `lexer/` from `:cato-kotlin` to `catoscript`, package rename `com.kp.cato.lexer` → `com.catoscript.lexer`
 - [x] Move `parser/` (line-splitter version) → `com.catoscript.parser`
@@ -308,7 +331,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > **That fresh work landed as Phase B.5** (commit `44cbdb4`) before Phase D, so the parser, AST, and interpreter loop exist without waiting for KP-side consumer work. The old flat `Token.kt` and line-splitter `Parser.kt` were deleted in the same commit; the new `RealParser.kt` is the only parser. Phase C's `meow`→`host.print` routing landed in B.5 too. What's still open in Phase C: the audio (`chirp`/`purr`/`hiss`/`vibrato`/`sample`), screen (`scurry`/`groom`), and env (`sniff_env` / future `env`) commands — they need both parser branches and interpreter branches written, with the corresponding `CatoHost` methods lit up.
 
-### Phase B.6 · Tier 5 label parameters (functions via labeled snippets)
+### Phase B.6 · Tier 5 label parameters (functions via labeled snippets) · ↩️ mechanism shipped (`0.3.1-LOCAL`, `d916fc7`); surface syntax superseded by B.8 — the label-params plumbing still underpins B.8's basket-call stack
 
 - [x] Extend `Stmt.Label` to carry declared parameter names: `data class Label(val name: String, val params: List<String>, val pos: SourcePos) : Stmt`
 - [x] Extend `Stmt.Jump` to carry call arguments: `data class Jump(val label: String, val args: List<Expr>, val pos: SourcePos) : Stmt`
@@ -330,7 +353,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Tests: four `RealParserTest` cases (one per new operator) + four `InterpreterTest` cases (one per new operator, each running a real script through the engine and asserting `host.printed`)
 - [x] Bump to `0.3.1-LOCAL`, publish *(shipped as part of the Phase B.6 bump on 2026-07-18; the CompareOp work shared the same bump because §8 rules say each phase gets one bump)*
 
-### Phase C · Introduce the host SPI
+### Phase C · Introduce the host SPI · 🚧 partial — `CatoHost` + `NullHost` + `meow`→`host.print` shipped (`0.3.0-LOCAL`, `06cbb35`); audio/screen/env primitives never written (N/A — they don't exist as planned commands)
 
 - [x] Add `com.catoscript.runtime.CatoHost` interface and `NullHost` (per §2)
 - [x] Refactor `Interpreter` constructor to take `host: CatoHost`
@@ -344,7 +367,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > CatoHost + NullHost shipped early as part of Phase A (see note there). The remaining Phase C checkboxes depend on Phase B landing first — there's no Interpreter to refactor until the engine moves over. `meow` routing landed as part of Phase B.5 alongside the interpreter loop.
 
-### Phase D · KP consumes the library
+### Phase D · KP consumes the library · ⏳ pending — KP-side work, lives in `KernelPanic-Kotlin-Port`, not this repo
 
 - [ ] Add `mavenLocal()` repository to KP `settings.gradle.kts`
 - [ ] Add `com.catoscript:catoscript:0.3.0-LOCAL` dependency to `:desktop`
@@ -354,7 +377,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Run `./gradlew :desktop:run`; window opens; `whoami` works; a `.cato` script runs through the new path
 - [ ] KP's `:cato-kotlin:test` is no longer a thing — tests live in the standalone repo
 
-### Phase E · Real parser + AST (the fun begins)
+### Phase E · Real parser + AST (the fun begins) · ✅ mechanism shipped as B.5 (`44cbdb4`); ⏳ `0.4.0-LOCAL` bump parked on KP-side click-to-line
 
 - [x] Add recursive-descent parser to `com.catoscript.parser` *(shipped as `RealParser.kt` in Phase B.5, commit `44cbdb4`)*
 - [x] Define `SourcePos(line, column)` and thread it through `Expr` / `Stmt` *(shipped: every `Stmt` and `Expr` carries `pos: SourcePos`; `ParseError` carries one too)*
@@ -364,7 +387,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > **Phase E actually landed as Phase B.5.** Commit `44cbdb4` ("Phase B.5: AST, recursive-descent parser, interpreter loop, host wiring") shipped the recursive-descent parser, the sealed `Expr`/`Stmt`/`CompareOp`/`StrPart` AST, `SourcePos` threaded through every node, and the interpreter loop that walks them — all the §5.1 / Phase E work. The phase-name drift ("B.5" vs "E") is documented because the devplan said E was after D, and D is KP-side work; running B.5 before D let the parser land without a downstream consumer. The Phase E bump to `0.4.0-LOCAL` is parked until the KP-side click-to-line work makes the error positions user-visible.
 
-### Phase F · Standalone CLI REPL ships
+### Phase F · Standalone CLI REPL ships · 🚧 partial — `cato` / `cato.bat` launchers + `shadowDistZip` shipped (`6c3ecf4`); `tools/repl/` subproject + ANSI `ReplHost` pending
 
 - [ ] Create `tools/repl/` Gradle subproject (kotlin("jvm") application)
 - [ ] Implement `ReplHost : CatoHost` using ANSI escape codes for cursor/clear
@@ -374,7 +397,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > **Phase F partially shipped ahead of REPL.** The launcher scripts and the install distribution (`shadowDistZip`) shipped in commit `6c3ecf4` because the fat jar was the prerequisite for any user-facing install path. The `tools/repl/` subproject and the ANSI `ReplHost` are still pending — they need Phase G's analyzer / formatter / stepper to land first for `:tutorial` and `:step` to be meaningful. The Phase F bump to `0.5.0-LOCAL` happens when the REPL itself ships.
 
-### Phase G · Move the analyzer + formatter + stepper
+### Phase G · Move the analyzer + formatter + stepper · 🚧 partial — `cato compile` core shipped across B.1/B.2/B.3 (`a5ca509` → `6fd9a5d`); analyzer move + stepper + `:step` + `cato fmt` + KP F2 overlay pending
 
 - [ ] Move `CatoScriptAnalyzer` from KP `:desktop/catoDE/` → `catoscript/analyzer/`
 - [ ] Add `cato fmt` to `tools/repl/` (calls `analyzer.format()`)
@@ -384,7 +407,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Bump to `0.6.0-LOCAL`, publish
 - [ ] (KP side) CatoDE editor calls the library analyzer; debug overlay (F2) uses the library stepper
 
-### Phase G sub-batches (the `cato compile` work)
+### Phase G sub-batches (the `cato compile` work) · B.1 ✅ `a5ca509`, B.2 ✅ `ee1d4b7`, B.3 ✅ `6fd9a5d`; B.7 MW4 (`.cato.json` sidecar) and MW5 (round-trip test) still pending — see Phase B.7 below
 
 > Phase G's static-check core for `cato compile <file.cato>` ships across B.1–B.3. B.2 currently emits successful JSON to stdout; writing `.cato.json` next to the source remains the separate B.7 MW4 checkbox. No version bump at any sub-batch — Phase G bumps to `0.6.0-LOCAL` only after the full analyzer and CLI sidecar work are both complete.
 
@@ -416,7 +439,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Phase G's full static-check portion closes when this lands; the top-level `cato compile` checkbox stays open until B.7 MW4 also writes the `.cato.json` sidecar *(MW4)*
 - [ ] Phase G bumps to `0.6.0-LOCAL` after B.3 and B.7 MW4 complete the analyzer + sidecar compile path *(MW5)*
 
-### Phase B.7 · AST emit (parked for the lesson after B.6)
+### Phase B.7 · AST emit (parked for the lesson after B.6) · 🚧 partial — MW1 (`plugin.serialization`) ✅, MW2 (sealed-class annotations across six files) ✅, MW3 (`fun emit(program): String`) ✅ `a3a5b41`; MW4 (CLI writes `.cato.json` sidecar) + MW5 (round-trip + shape tests) pending
 
 - [x] Apply `kotlin("plugin.serialization") version "2.2.20"` to `build.gradle.kts` so the `@Serializable` translator is generated at compile time *(MW1)*
 - [x] Add `kotlinx.serialization` annotations to `Expr`, `Stmt`, `CompareOp`, `StrPart`, `SourcePos`, `Program` (no `Value` — runtime type, not AST) *(MW2, six files: SourcePos.kt, Expr.kt, Stmt.kt; sealed interfaces + every member stamped with `@Serializable` and members with `@SerialName` for JSON-side disambiguation)*
@@ -427,7 +450,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > Phase B.7 ships the AST-emit half of the user's "real compiler" idea. The static-check half ("refuse to emit if the analyzer finds errors") is Phase G's `cato compile` checkbox above; it cannot ship until `CatoScriptAnalyzer` lands. Sequencing matters: B.7 throws away no code — Phase G's analyzer pass slots in on top of the existing emit.
 
-### Phase B.8 · Replace label-based functions with `basket` / `return` / `()`
+### Phase B.8 · Replace label-based functions with `basket` / `return` / `()` · ✅ shipped (`0.3.2-LOCAL`, `bc53620`); docs sync still partial — see last checkbox
 
 **Why:** Phase B.6 shipped "a function is a labeled snippet with inputs" using `jump :NAME args` to call and `jump :end` to return. Both shapes read as jargon, not plain English — and §11 commits to plain reading. Phase B.8 retires those two special cases and ships three readable keywords plus `()` sugar, so a function reads top-to-bottom as natural language.
 
@@ -528,7 +551,7 @@ This file is the canonical reference shape for the rewrite of `samples/misc/tier
 - [x] Bump to `0.3.2-LOCAL`, publish *(breaking change to the call form — any script using `jump :NAME args` or `jump :end` must rewrite; naked `jump :NAME` gotos keep working unchanged)*
 - [ ] Update docs accordingly: `catoscript-reference.md` §3 (commands table — drop the Jump two-branch handler description), §5 (replace Labels-and-jumps section with Baskets-and-calls), §11 (drop 11.1 `:end` return opcode and 11.3 label parameters live; add `return` requires active frame and `()` is the call site); update `catoscript-reference.md` §13.2 to remove `()` from "Future syntax" (now shipped); update this devplan's Phase B.6 entry to point at B.8 as the source of truth for Tier 5 *(partial — §11.7a/§11.7b stale "After B.8 lands" wording was dropped in commit `bc53620`; §3 row + §5.5 stub shipped. Remaining: full §5 rewrite from "Labels-and-jumps" to "Baskets-and-calls" frame, §13.2 "()" removal, and the B.6 entry's source-of-truth redirect. Worth a follow-on docs pass.)*
 
-### Phase I · Editor support (VS Code now, IntelliJ later)
+### Phase I · Editor support (VS Code now, IntelliJ later) · ✅ VS Code shipped (`ac07563` + follow-on commits); ⏳ IntelliJ deferred until Tiers 9–11 land
 
 - [x] Stand up `editor/` as a standalone VS Code extension module (TextMate grammar + theme + language config + manifest)
 - [x] Mirror the Kernel Panic CatoDE palette (cyan / pink / yellow / purple / green / orange hex values from `cato/components/Editor.tsx`)
@@ -541,7 +564,7 @@ This file is the canonical reference shape for the rewrite of `samples/misc/tier
 
 > Phase I shipped VS Code support early (alongside Phase C) because the language is now usable end to end and an editor is the natural next tool. The IntelliJ piece is deferred until Tiers 9-11 ship and there's enough catoscript code in the wild that an IntelliJ user might actually want to edit it. The plan lives in `docs/intellij-plugin-plan.md` (gitignored personal notes) so the work doesn't get lost.
 
-### Phase H · Real publishing (after API stabilizes)
+### Phase H · Real publishing (after API stabilizes) · ⏳ blocked — pinned at `0.6.0+`; can't ship until Phase G (and likely F) bumps the public API to a stable shape
 
 - [ ] Pin `catoscript` version in KP `gradle.properties` (`catoscript.version=0.6.0`)
 - [ ] Decide publishing target (Maven Central? Private GitHub Packages? JitPack?)
