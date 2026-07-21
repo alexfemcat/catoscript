@@ -16,14 +16,14 @@
 | C       | `CatoHost` SPI + `NullHost` + `meow` routing                                                          | 🚧 partial — `meow` routed; audio/screen/env primitives were never written (N/A)        | `0.3.0-LOCAL`         | `06cbb35`    |
 | D       | KP consumes the library                                                                               | ⏳ pending — KP-side work, external to this repo                                        | —                     | —            |
 | E       | Real parser + AST (folded into B.5)                                                                   | ✅ mechanism shipped; ⏳ `0.4.0-LOCAL` bump parked on KP click-to-line                  | (next bump)           | `44cbdb4`    |
-| F       | Standalone CLI REPL                                                                                   | 🚧 partial — `cato` / `cato.bat` launchers shipped; `tools/repl/` + `ReplHost` pending | `0.3.2-LOCAL`         | `6c3ecf4`    |
+| F       | Standalone CLI REPL                                                                                   | ⏸️ deferred — `cato` / `cato.bat` launchers shipped; `tools/repl/` + `ReplHost` parked indefinitely (no user need; `cato run X.cato` covers scripting) | `0.3.2-LOCAL`         | `6c3ecf4`    |
 | G       | Analyzer + `cato compile` + stepper                                                                   | 🚧 partial — B.1 / B.2 / B.3 shipped; stepper, fmt, `.cato.json` sidecar pending        | (next bump `0.6.0`)   | `6fd9a5d`    |
 | └ B.7   | AST emit (`.cato.json`)                                                                               | 🚧 MW1–MW3 shipped; MW4 CLI sidecar + MW5 tests pending                                | —                     | `a3a5b41`    |
 | └ B.8   | `basket` / `end_basket` / `return` / `name(args)`                                                     | ✅ shipped *(docs sync partial — see last checkbox)*                                    | `0.3.2-LOCAL`         | `bc53620`    |
 | I       | Editor support                                                                                        | ✅ VS Code shipped; ⏳ IntelliJ deferred                                                | —                     | `ac07563`    |
 | H       | Real publishing (Maven Central / GitHub Packages)                                                     | ⏳ blocked on API stability                                                            | (target `0.6.0+`)     | —            |
 
-**Current shipped version:** `0.3.2-LOCAL` (B.8). The next bump is whichever lands first of: E's click-to-line (`0.4.0-LOCAL`), F's REPL (`0.5.0-LOCAL`), or G's full analyzer + sidecar (`0.6.0-LOCAL`).
+**Current shipped version:** `0.3.2-LOCAL` (B.8). The next bump is whichever lands first of: E's click-to-line (`0.4.0-LOCAL`) or G's full analyzer + sidecar (`0.6.0-LOCAL`). Phase F's REPL is parked indefinitely.
 
 **How to read this doc.** The table above is the at-a-glance view. Each phase section below retains its full checklist + prose for the work — scan the table for "what's open," then jump to that section for context. Phase headers carry the same status tag inline so the table and the body don't drift.
 
@@ -185,6 +185,8 @@ The 100-instruction-per-frame budget becomes a `data class InterpreterPolicy(val
 `sniff_env` becomes `env("KEY")` and `set_env` for symmetry. The host decides what the env *is*. KP injects game state. A teaching REPL injects a small mock. A future web playground injects URL params.
 
 ### 5.4 Standalone CLI REPL
+
+> **Deferred indefinitely (2026-07-21).** See Phase F — `tools/repl/` + `ReplHost` parked; `cato run X.cato` covers the scripting workflow, no interactive loop needed. This subsection is preserved as the design record; if a need surfaces, the §10 amendment process applies.
 
 `tools/repl/` is a pure-stdlib JVM app:
 
@@ -387,15 +389,15 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > **Phase E actually landed as Phase B.5.** Commit `44cbdb4` ("Phase B.5: AST, recursive-descent parser, interpreter loop, host wiring") shipped the recursive-descent parser, the sealed `Expr`/`Stmt`/`CompareOp`/`StrPart` AST, `SourcePos` threaded through every node, and the interpreter loop that walks them — all the §5.1 / Phase E work. The phase-name drift ("B.5" vs "E") is documented because the devplan said E was after D, and D is KP-side work; running B.5 before D let the parser land without a downstream consumer. The Phase E bump to `0.4.0-LOCAL` is parked until the KP-side click-to-line work makes the error positions user-visible.
 
-### Phase F · Standalone CLI REPL ships · 🚧 partial — `cato` / `cato.bat` launchers + `shadowDistZip` shipped (`6c3ecf4`); `tools/repl/` subproject + ANSI `ReplHost` pending
+### Phase F · Standalone CLI REPL ships · ⏸️ deferred indefinitely (`0.3.2-LOCAL` stays the latest bump until E or G ships) — `cato` / `cato.bat` launchers + `shadowDistZip` shipped (`6c3ecf4`); `tools/repl/` subproject + ANSI `ReplHost` parked
 
-- [ ] Create `tools/repl/` Gradle subproject (kotlin("jvm") application)
-- [ ] Implement `ReplHost : CatoHost` using ANSI escape codes for cursor/clear
+- [ ] Create `tools/repl/` Gradle subproject (kotlin("jvm") application)  *(parked — no current need; `cato run X.cato` covers scripting)*
+- [ ] Implement `ReplHost : CatoHost` using ANSI escape codes for cursor/clear  *(parked)*
 - [x] Ship `cato` launcher script *(shipped via the shadow distribution's `startShadowScripts` task with `applicationName = "cato"`. Two launchers: `bin/cato` (bash, Mark-as-Executable in install dir) and `bin/cato.bat` (Windows). Both auto-discover the fat jar at `../lib/catoscript-<version>.jar`. See §3 "Distribution" note.)*
 - [x] README documents the 30-second quickstart *(README §2 has three paths: install via the zip, run via `java -jar`, and the dev launcher)*
-- [ ] Bump to `0.5.0-LOCAL`, publish
+- [ ] Bump to `0.5.0-LOCAL`, publish  *(parked — no bump target tied to the REPL)*
 
-> **Phase F partially shipped ahead of REPL.** The launcher scripts and the install distribution (`shadowDistZip`) shipped in commit `6c3ecf4` because the fat jar was the prerequisite for any user-facing install path. The `tools/repl/` subproject and the ANSI `ReplHost` are still pending — they need Phase G's analyzer / formatter / stepper to land first for `:tutorial` and `:step` to be meaningful. The Phase F bump to `0.5.0-LOCAL` happens when the REPL itself ships.
+> **Phase F parked 2026-07-21.** The launchers and install distribution shipped in `6c3ecf4` because the fat jar was a prerequisite for any user-facing install path. The `tools/repl/` subproject and ANSI `ReplHost` were always downstream — they need Phase G's analyzer / formatter / stepper to land first for `:tutorial` and `:step` to be meaningful. The REPL is now **deferred indefinitely**: `cato run X.cato` already covers the scripting workflow, and nobody has surfaced a real use case that requires an interactive loop. If a need appears (debugger, tutorial walker, ad-hoc snippet tester), the §10 amendment process applies — open a doc PR with the concrete script it would shorten, two-week wait, decide. **Until then, the `0.5.0-LOCAL` bump is unassigned; next bump is whichever of E (`0.4.0-LOCAL`) or G (`0.6.0-LOCAL`) ships first.**
 
 ### Phase G · Move the analyzer + formatter + stepper · 🚧 partial — `cato compile` core shipped across B.1/B.2/B.3 (`a5ca509` → `6fd9a5d`); analyzer move + stepper + `:step` + `cato fmt` + KP F2 overlay pending
 
@@ -598,7 +600,7 @@ The extraction is complete when:
 
 - `catoscript` is a standalone Kotlin/JVM library on its own git timeline
 - KP consumes it via a versioned Maven coordinate
-- The CLI REPL runs any `.cato` script without touching KP code
+- `cato run X.cato` runs any `.cato` script without touching KP code *(the REPL was originally this proof; deferred per §5.4 — `cato run` is sufficient)*
 - A second consumer (a teaching tool, a web playground, anything) can adopt the library in under an hour
 - The 67-command canned-tools registry stays game-specific and doesn't leak into the library
 - Kernel Panic's lessons focus on game-specific code; catoscript improvements live in the catoscript repo and arrive via dependency bumps
@@ -821,8 +823,8 @@ The pedagogical positioning is complete when:
 - The eleven tiers cover everything a player needs to script the terminal; there's no "you'll need to learn X first" gap
 - Every command in the spec has a *"teaches:"* tag listing its tier(s)
 - The `cato fmt` formatter is idempotent on a script the player wrote by hand — i.e., it doesn't fight the way a human naturally writes
-- The CLI REPL's `:tutorial` walks through tiers 1–11 in order
 - A second consumer (a teaching tool, a web playground, a textbook) can adopt the language *as a teaching tool* without modification
+- *No interactive `:tutorial` until §5.4's REPL ships (deferred); tier walkthroughs live in `samples/<NN_*/>` directories until then*
 
 ---
 
@@ -985,7 +987,7 @@ Tier 8 · Real types (opt-in let)
 ### How this interacts with §5, §6, §10, §11
 
 - **§5 (improvements):** Tiers 9–11 are implemented as stdlib additions (§5.x). No grammar change. Feature-flagged behind `cli.enable` / `ui.enable` during rollout.
-- **§6 (migration order):** Add a Phase F.5 — *ship `std.cli` and `std.ui` with the CLI REPL*. The REPL's `:tutorial` covers Tiers 9–11 after Tiers 1–8.
+- **§6 (migration order):** Ship `std.cli` and `std.ui` as callable stdlib functions usable from `cato run X.cato --args ...`. No Phase F.5 / REPL coupling (Phase F deferred per §5.4); the stdlib stands alone.
 - **§10 (out of scope):** Add the read-out-loud column to the "no" table. Every existing "no" (closures, lambdas, classes, async, operator overloading) fails the test. UI widgets would too — that's why they're in this section's "stays out" list.
 - **§11 (pedagogical positioning):** Update the tier ladder from eight to eleven tiers. The "what done looks like" checklist grows from "tiers 1–8" to "tiers 1–11."
 
@@ -1003,7 +1005,9 @@ The CLI + UI stdlib is complete when:
 
 ### A note on the CLI REPL itself
 
-The CLI REPL (§6 Phase F) becomes the *proof of independence for the full stdlib*, not just the language. When the REPL ships with `std.cli` and `std.ui`, a player can:
+> **Deferred indefinitely (2026-07-21).** Phase F's REPL is parked — see §5.4 and the Phase F entry. `std.cli` / `std.ui` ship as callable stdlib functions usable from `cato run X.cato --args ...` without an interactive loop. The independence proof below holds without the REPL — `cato run samples/std/cli/cat.cato foo.txt` already runs a CLI tool written in catoscript with zero game knowledge.
+
+The CLI REPL (§6 Phase F) was originally framed as the *proof of independence for the full stdlib*. When it ships with `std.cli` and `std.ui`, a player can:
 
 ```bash
 $ cato
@@ -1045,7 +1049,7 @@ Stripped to actual needs — the parser and interpreter work that's worth doing,
 | **Real parser, typed AST, line/column positions** | Better errors, LSP hover/jump, formatter, stepper — and the line-splitter today has bugs (nested quotes, escape sequences, `$var` interpolation re-parsed at runtime) | ✅ §5.1, Phase E |
 | **Configurable `InterpreterPolicy`** (step budget, max total steps, seed) | Testability, deterministic replays, future sandboxing | ✅ §5.2 |
 | **Generic `env()` host call** (replaces KP-specific `sniff_env`) | Language portability — the host decides what env is | ✅ §5.3 |
-| **`Stepper` interface** | LSP debug features, `:step` in REPL, KP's debug overlay | ✅ §5.7 |
+| **`Stepper` interface** | LSP debug features, KP's debug overlay (F2) | ✅ §5.7 |
 
 That's the list. Four things. Each ships in its own commit. Each clears §10's bar (collapses something real). None are "more advanced" — they're *correct*.
 
@@ -1114,7 +1118,7 @@ The implementation discipline holds when:
 
 ### The four approved capabilities
 
-Each item below is a new stdlib namespace that lands in its own commit, behind its own feature flag (`time.enable`, `fs.enable`, `test.enable`, `json.enable`), and ships with a `:tutorial` entry covering its tier.
+Each item below is a new stdlib namespace that lands in its own commit, behind its own feature flag (`time.enable`, `fs.enable`, `test.enable`, `json.enable`), and ships with a tier-tagged sample in `samples/<NN_*/>` until §5.4's `:tutorial` REPL ships (deferred).
 
 **Tier 12 · Other people's code — `std.time` and `std.random`**
 
