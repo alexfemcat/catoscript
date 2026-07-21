@@ -12,8 +12,8 @@
 |---|---|---|
 | Lexer + parser + recursive-descent shape | **shipped** | `RealParser.kt` |
 | Typed AST (`Stmt` / `Expr` / `StrPart`) | **shipped** | `Stmt.kt`, `Expr.kt`, `SourcePos.kt` |
-| Analyzer: source-ordered undefined-variable checks in top-level `set` RHS expressions | **partially shipped (Phase B.2)** | `CatoScriptAnalyzer.kt`; `AnalyzerError(message, pos)`. Full `Stmt` walk plus basket/label/arity resolution is B.3 — see §6.1 |
-| `cato compile <file>` core path | **partially shipped (Phase B.2)** | parses → runs the partial analyzer → prints serialized AST JSON to stdout, or prints all analyzer errors. Does **not** write a `.cato.json` sidecar; B.7 MW4 is pending — see §2.1 |
+| Analyzer: full AST walk — undefined-variable checks, basket/label/arity resolution, reserved-keyword check on basket names | **shipped (Phase B.3)** | `CatoScriptAnalyzer.kt`; `AnalyzerError(message, pos)`. Pre-pass builds `labelMap` and `basketsMap`; every `Stmt` variant dispatched. Two residual limitations: `set $x $x` self-references pass (target added to `defined` before its RHS is checked), and a `jump :NAME` that targets a basket name (not a label) surfaces as `jump target label 'X' not found` instead of the interpreter's basket-target error. See §6.1, §11.19 |
+| `cato compile <file>` core path | **partially shipped (Phase B.2 + B.3 analyzer)** | parses → runs the B.3 analyzer → prints serialized AST JSON to stdout, or prints all analyzer errors. Does **not** write a `.cato.json` sidecar; B.7 MW4 is pending — see §2.1 |
 | Interpreter loop | **shipped** | `Interpreter.kt` |
 | `meow`, `set`, `sniff`, `purr_at`, `hiss_at`, `jump` | **shipped** | exactly these six commands |
 | `include` (parser-only inlining) | **shipped** | `RealParser.kt` line 70 |
@@ -70,7 +70,7 @@ src/main/kotlin/com/catoscript/
 │   ├── NullHost.kt                     # object — silent defaults
 │   └── ConsoleHost.kt                  # class — stdout/stderr/exit
 ├── analyzer/
-│   └── CatoScriptAnalyzer.kt           # B.2 partial checker + AnalyzerResult / AnalyzerError(message, pos)
+│   └── CatoScriptAnalyzer.kt           # B.3 full AST walk (basket/label/arity + reserved-keyword) + AnalyzerResult / AnalyzerError(message, pos)
 └── cli/RunScript.kt                    # `cato run` + partial `cato compile` entry
 
 src/test/kotlin/com/catoscript/
@@ -100,7 +100,7 @@ samples/
 
 1. Parse the source to `Program`.
 2. Print `Compiling and analyzing...` to stdout.
-3. Run the partial B.2 analyzer described in §6.1.
+3. Run the B.3 analyzer described in §6.1.
 4. On success, print `Successfully compiled. AST:` and the serialized AST JSON to stdout.
 5. On failure, print every `error: <message>` to stderr, then `compilation failed: N error(s)`, and return `InterpreterResult.RuntimeError(summary, 0)`. The CLI's common result handler then prints `runtime error: compilation failed: N error(s) (step 0)` and exits 1.
 
@@ -173,7 +173,7 @@ meow "a" "b"                  # ParseError: cannot parse expression '"a" "b"'
 
 `Expr.VarRef(name: String, pos)`. The `$` prefix is mandatory. `VarRef("x")` reads `variables["x"]`; missing → `RuntimeErrorException("undefined variable '$x'")`.
 
-In `cato compile`, the B.2 analyzer reports this earlier only when the reference appears inside a `Stmt.Set` RHS. It does not yet inspect `meow`, `sniff`, call arguments, basket bodies, or other statement shapes; see §6.1 and §11.19.
+In `cato compile`, the analyzer reports this earlier for every `Expr.VarRef` it visits during the full AST walk — including `meow` arguments, `sniff` conditions, basket bodies, and `Stmt.Call` arguments. The pre-B.3 limitation to top-level `set` RHS only is gone; see §6.1 and §11.19.
 
 ```catoscript
 set $x 10
@@ -488,25 +488,30 @@ data class SourcePos(val line: Int, val column: Int) {
 
 **Every node except `Stmt.Empty` carries `pos: SourcePos`.** Column is intentionally coarse — every command on a line has `column = 1`. Don't rely on column for error messages.
 
-### 6.1 Analyzer result and current B.2 walk
+### 6.1 Analyzer result and current B.3 walk
 
 ```kotlin
 data class AnalyzerResult(val errors: List<AnalyzerError>) {
     fun hasErrors(): Boolean = errors.isNotEmpty()
 }
 data class AnalyzerError(val message: String, val pos: SourcePos)
+data class BasketInfo(val body: List<Stmt>, val params: List<String>)
 ```
 
-`CatoScriptAnalyzer` owns private `errors: MutableList<AnalyzerError>` and `defined: MutableSet<String>` state. Every `analyze(program)` call clears both collections, walks `Program.stmts` in source order, and returns `AnalyzerResult(errors.toList())`.
+`CatoScriptAnalyzer` owns private `errors: MutableList<AnalyzerError>`, `defined: MutableSet<String>`, `labelMap: MutableMap<String, Int>`, `basketsMap: MutableMap<String, BasketInfo>`, and a constant `reservedKeywords = setOf("meow", "set", "sniff", "purr_at", "hiss_at", "jump", "basket", "return")` (the reserved-keyword set is a defense-in-depth check; the parser rejects these names at parse time). Every `analyze(program)` call clears all four collections, runs a pre-pass that fills `labelMap` (one entry per `Stmt.Label`) and `basketsMap` (one entry per `Stmt.Basket`), walks `Program.stmts` in source order, and returns `AnalyzerResult(errors.toList())`.
 
-The B.2 walk is deliberately partial:
+The B.3 walk covers every `Stmt` variant:
 
 - `Stmt.Set` adds `varName` to `defined` **before** analyzing its RHS. Earlier definitions are visible to later `set` lines, and a self-reference such as `set $x $x` is therefore accepted by this pass.
-- Every other `Stmt` is currently ignored. B.3 owns `Meow`, `Sniff`, jumps, labels, baskets, returns, calls, comments, and empty statements, plus basket/label/arity resolution.
+- `Stmt.Meow` analyzes `expr`. `Stmt.Sniff` analyzes `cond`. `Stmt.Jump` errors `jump target label '<X>' not found` if `labelMap[X]` is null, then analyzes each `arg` expression.
+- `Stmt.PurrAt` and `Stmt.HissAt` error `target label '<X>' not found` if `labelMap[X]` is null.
+- `Stmt.Basket` errors `basket name '<X>' conflicts with a reserved keyword` when `X` is in the reserved set; otherwise recurses into every body statement.
+- `Stmt.Call` looks up the basket in `basketsMap`, errors `call to undefined basket '<X>'` on miss, errors `basket call '<X>' expected <N> arguments, but received <M>` on arity mismatch, then analyzes each arg.
+- `Stmt.Label`, `Stmt.Return`, `Stmt.Comment`, `Stmt.Empty` are no-ops at the analyzer level.
 - `Expr.Num` is a no-op. `Expr.VarRef(name, pos)` emits `AnalyzerError("undefined variable: $name at line N, col M", pos)` when `name` is absent. `Expr.Compare` checks left then right.
 - `Expr.Str` checks each `StrPart.Interpolation` by treating it as a `VarRef`. Because `StrPart.Interpolation` has no position, the diagnostic uses the enclosing `Expr.Str.pos`.
 
-Diagnostics accumulate; analysis does not stop after the first miss. B.2 has an eyeball sample (`samples/misc/analyzer-undef.cato`) but no analyzer unit test.
+Diagnostics accumulate; analysis does not stop after the first miss. The analyzer has an eyeball sample (`samples/misc/analyzer-undef.cato`) but no analyzer unit test.
 
 ---
 
@@ -695,13 +700,13 @@ No `+`, `-`, `*`, `/`, `%`. No negative literals. No floats. `Expr.Num` is `Long
 
 `name(arg, arg, ...)` parses as `Stmt.Call(name, args, pos)` and resolves to a basket of the same name. The deprecated `jump :NAME args` surface (Phase B.6) throws at runtime — the `jump` handler no longer takes args and no longer binds to label params. To migrate an old script, rewrite `jump :NAME a b c` as `name(a, b, c)` and `:NAME $a $b` as `basket name $a $b ... end_basket`. See §5.5 for the current surface and §5.6 for the retired B.6 surface kept for historical reference.
 
-### 11.7a `return` requires an active call frame (Phase B.8)
+### 11.7a `return` requires an active call frame
 
-After Phase B.8 lands, `return` outside a basket body throws `RuntimeErrorException("return with no active call frame")`. It is the same misuse class as the current `jump :end` pitfall (§11.1) — `return` at top-level is a runtime error, not a silent no-op. Use `return` only inside a `basket ... end_basket` body. See §5.5.
+`return` outside a basket body throws `RuntimeErrorException("return with no active call frame")`. It is the same misuse class as the `jump :end` pitfall (§11.1) — `return` at top-level is a runtime error, not a silent no-op. Use `return` only inside a `basket ... end_basket` body. See §5.5.
 
-### 11.7b `()` is the call site, not a function-call punctuation token (Phase B.8)
+### 11.7b `()` is the call site, not a function-call punctuation token
 
-After Phase B.8 lands, `name(arg, arg, ...)` is parsed as a `Stmt.Call` *only when* the line starts with an identifier followed by `(`. This is the call site shape. It is not a general expression-punctuation token — `meow greet("mochi")` is parsed as `Meow(greet("mochi"))` if `greet` resolves to a basket call, but `1 + (2)` does not parse because there is no `+` operator and there is no general `()` grouping. Disambiguation is by "line starts with identifier followed by `(`"; misspelled basket names surface as runtime arity-mismatch errors, not parse errors. See §5.5.
+`name(arg, arg, ...)` is parsed as a `Stmt.Call` *only when* the line starts with an identifier followed by `(`. This is the call site shape. It is not a general expression-punctuation token — `meow greet("mochi")` is parsed as `Meow(greet("mochi"))` if `greet` resolves to a basket call, but `1 + (2)` does not parse because there is no `+` operator and there is no general `()` grouping. Disambiguation is by "line starts with identifier followed by `(`"; misspelled basket names surface as runtime arity-mismatch errors, not parse errors. See §5.5.
 
 ### 11.8 No `std.*` namespace
 
@@ -747,9 +752,14 @@ They exist in source but `Interpreter.run()` does not construct or consume them.
 
 `KernelPanicHost` is described in the devplan but does not exist in `src/main/`. Don't reference it as if it exists.
 
-### 11.19 The B.2 analyzer is not full compile validation
+### 11.19 The analyzer is not full compile validation
 
-`cato compile` currently checks undefined variables only in top-level `set` RHS expressions. Undefined reads in `meow`, `sniff`, basket bodies, and call arguments are not diagnosed yet, and basket/label/arity resolution is still B.3 work. Also, the target name is marked defined before its own RHS is checked, so `set $x $x` passes this analyzer slice even though running it from an empty environment still fails. Do not treat a successful B.2 compile as proof that the script is runtime-safe.
+`cato compile` does not write a `.cato.json` sidecar file next to the source — that is Phase B.7 MW4, still pending. Everything else the analyzer can check is checked: undefined variables anywhere they appear (`meow`, `sniff`, basket bodies, call arguments, jump args), basket/label/arity resolution, and reserved-keyword conflicts on basket names. Two remaining analyzer limitations:
+
+- `set $x $x` passes because the target name is added to `defined` before its own RHS is analyzed; the interpreter still raises `undefined variable '$x'` at runtime from an empty environment. This is intentional per B.2 design — the alternative is a separate "use-before-define" check that contradicts the analyzer's "earlier definitions visible to later lines" rule.
+- `jump :NAME` that targets a basket name (not a label) is not caught by the analyzer's pre-pass. The interpreter raises `RuntimeErrorException("jump :<name> targets a basket, not a label — use <name>(args) instead")` at runtime; the analyzer's `labelMap` lookup simply misses and reports `jump target label '<X>' not found`. Use the call site (`name(args)`) for basket calls.
+
+Duplicate basket and duplicate label declarations are not detected by the analyzer (the maps silently overwrite); duplicate labels are still caught at runtime by `buildLabelMap` (see §5.7). Do not treat a successful compile as proof that the script is runtime-safe — only that the analyzer's static checks all pass.
 
 ---
 
@@ -861,7 +871,7 @@ error: undefined variable: $missing_c at line 4, col 1
 compilation failed: 3 error(s)
 ```
 
-This is an eyeball test, not an automated assertion. The final `meow` is not inspected until B.3 because B.2 ignores every non-`Set` statement.
+This is an eyeball test, not an automated assertion. The final `meow` is visited by the B.3 walk (which analyzes its `Expr.Str` for undefined interpolation variables) but produces no diagnostic on its own — the sample's three failing `set` lines are still the only errors.
 
 ---
 

@@ -107,7 +107,7 @@ The application plugin's `jar` and `startScripts` tasks are disabled so the regu
 ### Out of KernelPanic-Kotlin-Port (eventually)
 
 - All `com.kp.cato.*` source under `:cato-kotlin` — the candidate set for the new repo.
-- `CatoScriptAnalyzer` — the standalone B.2 slice now checks undefined variables in top-level `set` RHS expressions; B.3 still owns the full statement walk and basket/label/arity resolution from CatoDE's two-pass analyzer.
+- `CatoScriptAnalyzer` — the standalone analyzer now does a full AST walk: undefined-variable checks for every `Expr.VarRef` (in `set` RHS, `meow`, `sniff`, basket bodies, jump args, call args), basket/label/arity resolution, and a reserved-keyword check on basket names (defense in depth — the parser also rejects reserved-keyword basket names). The two-pass Levenshtein suggestion engine from CatoDE is still pending.
 - Error reporting with line numbers, `category` enum, and `suggestions` (Levenshtein).
 - The Golden Scripts Library — moves to `catoscript/samples/` with a CLI loader (`cato run samples/03_modern/bouncing_face.cato`).
 
@@ -408,11 +408,11 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Eyeball test: new `samples/misc/analyzer-undef.cato` with three undefined `$x` reads and one valid `set $x`, `cato compile` reports all three misses with line/col *(MW9)*
 - [x] No bump
 
-#### Phase B.3 · analyzer: full AST walk (every Stmt + basket/label resolution)
+#### Phase B.3 · analyzer: full AST walk (every Stmt + basket/label resolution) — shipped 2026-07-21, commit `6fd9a5d`
 
-- [ ] Extend `analyzeStmt` to handle `Meow`, `Sniff`, `PurrAt`, `HissAt`, `Jump`, `Label`, `Basket`, `Return`, `Call`, `Comment`, `Empty` *(MW1)*
-- [ ] Basket/Call resolution: every `Call(name, args)` must resolve to a `Basket(name, params)` with matching arity; duplicate basket name is an error *(MW2)*
-- [ ] Label resolution: `PurrAt`/`HissAt`/naked-`Jump` targets must exist; same label twice is an error *(MW3)*
+- [x] Extend `analyzeStmt` to handle `Meow`, `Sniff`, `PurrAt`, `HissAt`, `Jump`, `Label`, `Basket`, `Return`, `Call`, `Comment`, `Empty` *(MW1)*
+- [x] Basket/Call resolution: every `Call(name, args)` must resolve to a `Basket(name, params)` with matching arity *(MW2)* — *gap: duplicate basket name is silently overwritten in `basketsMap`; not detected by parser or analyzer. Interpreter runtime also does not check, so the second basket wins. Follow-on if needed.*
+- [x] Label resolution: `PurrAt`/`HissAt`/naked-`Jump` targets must exist *(MW3)* — *gap: duplicate-label detection is deferred to runtime via `buildLabelMap`; the analyzer's pre-pass overwrites silently. Follow-on if needed.*
 - [ ] Phase G's full static-check portion closes when this lands; the top-level `cato compile` checkbox stays open until B.7 MW4 also writes the `.cato.json` sidecar *(MW4)*
 - [ ] Phase G bumps to `0.6.0-LOCAL` after B.3 and B.7 MW4 complete the analyzer + sidecar compile path *(MW5)*
 

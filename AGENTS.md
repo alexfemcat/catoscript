@@ -100,7 +100,7 @@ CatoScript-Standalone/
 │   ├── interpreter/                  # loop, ScriptContext, IP, instruction budget
 │   ├── runtime/                      # CatoHost, NullHost, Waveform
 │   ├── commands/                     # built-in stdlib (meow, set, sniff, jump, …)
-│   ├── analyzer/                     # CatoScriptAnalyzer (B.2: source-ordered top-level Set-RHS undefined-variable pass; B.3 full walk pending)
+│   ├── analyzer/                     # CatoScriptAnalyzer (B.3: full AST walk — undefined variables, basket/label/arity resolution, reserved-keyword check)
 │   └── errors/                       # CatoScriptError, categories, Levenshtein suggestions
 ├── src/test/kotlin/com/catoscript/   # one test file per slice; uses NullHost
 ├── samples/                          # .cato files; golden scripts organized by tier
