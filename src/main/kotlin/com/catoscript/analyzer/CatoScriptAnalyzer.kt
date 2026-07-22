@@ -74,9 +74,9 @@ class CatoScriptAnalyzer {
                 if (reservedKeywords.contains(stmt.name)) {
                     errors.add(AnalyzerError("basket name '${stmt.name}' conflicts with a reserved keyword", stmt.pos))
                 } else {
-                    for (bodyStmt in stmt.body) {
-                        analyzeStmt(bodyStmt)
-                    }
+                    for (param in stmt.params) { defined.add(param) }
+                    for (bodyStmt in stmt.body) { analyzeStmt(bodyStmt) }
+                    for (param in stmt.params) { defined.remove(param) }
                 }
             }
             is Stmt.Call -> {
