@@ -11,7 +11,7 @@
 | What                                                                                | State                       | Version       |
 |-------------------------------------------------------------------------------------|-----------------------------|---------------|
 | Empty module scaffold (build.gradle.kts, package, settings include, version pin)     | ✅ shipped (`0.1.0-LOCAL`)  | `0.1.0-LOCAL` |
-| `WebHost : CatoHost` interface (in `catoscript-core`, this module's consumer)       | ⏳ pending                  | —             |
+| `WebHost : CatoHost` interface (in `catoscript-core`, this module's consumer)       | ✅ shipped                  | —             |
 | Embedded HTTP server (JDK `com.sun.net.httpserver.HttpServer` for v0, ktor optional)| ⏳ pending                  | —             |
 | `WebHost` impl: route registry, request-to-basket dispatcher, response capture      | ⏳ pending                  | —             |
 | `samples/std/web/{route,start,respond,body}.cato` (dogfooded stdlib surface)        | ⏳ pending                  | —             |
@@ -111,12 +111,12 @@ Each phase = one commit, each commit ships green, each commit has a checkbox her
 - [x] `./gradlew :catoscript-libs:catoscript-web:publishToMavenLocal` publishes `com.catoscript:catoscript-web:0.1.0-LOCAL`
 - [x] This devplan (the file you're reading)
 
-### Phase B · `WebHost` interface (lives in core, declared here) · ⏳ pending
+### Phase B · `WebHost` interface (lives in core, declared here) · ✅ shipped
 
-- [ ] Add `WebHost : CatoHost` to `com.catoscript.runtime` in core
-- [ ] Add `Request` data class to `com.catoscript.runtime`
-- [ ] Document in `catoscript-reference.md` §8 (`CatoHost` SPI table) that web is now a known extension
-- [ ] No bump to this module's version (the change is in core)
+- [x] Add `WebHost : CatoHost` to `com.catoscript.runtime` in core
+- [x] Add `Request` data class to `com.catoscript.runtime`
+- [x] Document in `catoscript-reference.md` §8 (`CatoHost` SPI table) that web is now a known extension
+- [x] No bump to this module's version (the change is in core)
 
 ### Phase C · `WebHost` impl + dispatcher · ⏳ pending
 

@@ -457,7 +457,29 @@ interface CatoHost {
 | `ConsoleHost` | `println` | `System.err.println` | `kotlin.system.exitProcess(code)` | `System.currentTimeMillis()` | what `cato run` uses via `RunScript.kt` |
 | `RecordingHost` | appends to a list | n/a | n/a | n/a | test fixture in `InterpreterTest.kt` only |
 
-**`ReplHost`, `KernelPanicHost`, `WebHost` do not exist in source.** They appear in the devplan as targets for future work. Don't reference them as if they exist.
+### WebHost extension (declared in core, impl lives in `catoscript-libs:catoscript-web`)
+
+```kotlin
+package com.catoscript.runtime
+
+interface WebHost : CatoHost {
+    fun registerRoute(method: String, path: String, basketName: String)
+    fun serve(port: Int)
+    fun currentRequest(): Request
+    fun respond(status: Int, body: String)
+}
+
+data class Request(
+    val method: String,
+    val path: String,
+    val headers: Map<String, String>,
+    val body: String,
+)
+```
+
+**Status:** the interface and data class are declared in core. The reference implementation lives in the sibling module `:catoscript-libs:catoscript-web` (its own devplan, Phases C–E). The interpreter does not call any of these methods yet — `cato run` and `cato compile` only route `print` (per the Per-method status table above).
+
+**`ReplHost` and `KernelPanicHost` do not exist in source.** `WebHost` is now declared as an SPI extension in core (above); the reference implementation lives in `catoscript-libs/catoscript-web`. Don't reference `ReplHost` or `KernelPanicHost` as if they exist.
 
 ---
 
