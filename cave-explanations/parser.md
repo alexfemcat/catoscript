@@ -23,14 +23,19 @@ You hand the bark to a cave-cat. The cave-cat's job: turn the scribble into a st
    - Anything else → read the first word. That word tells you what kind of stone to carve.
 
 3. **For each stone kind, the cat has one rule.**
-   - "meow" → carve a meow-stone, look at what's after it, that's the thing to print.
-   - "set" → expect a name-shaped scratch (starts with the dollar-scratch), then expect a value after a gap.
-   - "sniff" → carve a sniff-stone, the rest is the question.
-   - "purr_at" → expect a signpost-name after it.
+   - A print-mark → carve a yelling stone and put the following value inside.
+   - A remember-mark → expect a name-tag, then a value after a gap.
+   - A smell-mark → carve a smelling stone with the following question.
+   - A conditional leap-mark → expect a signpost name.
+   - A plain leap-mark → expect a signpost name and any gift values.
+   - A basket opening → collect its name, empty name-tags, and all enclosed stones until the closing mark.
+   - A named basket followed by a gift circle → carve a basket-call stone.
+   - A return-mark → carve a return stone.
+   - An include-mark → fetch another bark, carve its stones here, and fence them so the main walk skips them. Missing bark and circular fetching make the cat growl.
 
 4. **If the bark doesn't match any rule, the cat growls.** That's the error stone. ("You wrote 'mew' but there's no such stone. Did you mean 'meow'?")
 
-5. **At the end, hand over the stack of stones.** That stack is the program. The interpreter later picks up stones one by one and does what each says.
+5. **At the end, hand over the stack of stones.** The cat can also press that whole stack into a tidy, shareable clay record. The interpreter later picks up stones one by one and does what each says.
 
 ---
 

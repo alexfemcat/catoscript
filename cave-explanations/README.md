@@ -13,10 +13,12 @@
 | [`AST.md`](AST.md) | The stone catalog. Instruction stones (do) and value stones (be), plus the three pouch shapes. |
 | [`variables-and-sniff.md`](variables-and-sniff.md) | The doer cat's two memories: the name-tag pile (long-lived) and the nose-memory (one-shot yes/no). |
 | [`CatoHost.md`](CatoHost.md) | The leash. The named pokes from the script to the outside world; whoever holds the other end decides what each poke does. |
-| [`InterpreterPolicy.md`](InterpreterPolicy.md) | The cat's tiredness setting. Three knobs: per-nap budget, total budget, seed for later. |
+| [`InterpreterPolicy.md`](InterpreterPolicy.md) | The cat's tiredness setting. Four knobs: per-nap budget, total budget, basket depth, seed for later. |
 | [`InterpreterResult.md`](InterpreterResult.md) | The three doors out of the cave: finished, tired, or growled. |
 | [`label-map.md`](label-map.md) | The signpost book. Built once before the walk; jump stones open it and leap. |
 | [`SourcePos.md`](SourcePos.md) | The clay tablet on every stone. Line + column, so growls say "right here" not "somewhere." |
+| [`ThreadHandle.md`](ThreadHandle.md) | The thread collar. Three marks identify a walking cat, its current signpost, and whether it is active. |
+| [`CatoScriptAnalyzer.md`](CatoScriptAnalyzer.md) | The warning cat. Catalogs names and finds detectable mistakes before the doer cat walks. |
 
 ## How to read these
 

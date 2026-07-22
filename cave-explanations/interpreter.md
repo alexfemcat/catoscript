@@ -32,7 +32,10 @@ The doer-cat has four things in its pouch:
 - **Sniff stone** → smell the question inside, write yes or no into the nose-memory. Move finger down.
 - **Purr stone** → check nose-memory. If yes, *leap* the finger to the signpost. If no, move finger down.
 - **Hiss stone** → same as purr, but flip the answer (jump if no, move down if yes).
-- **Jump stone** → always leap the finger to the signpost.
+- **Jump stone** → always leap the finger to the signpost; growl if that name belongs to a basket.
+- **Basket stone** → leave its stored stones alone and move finger down.
+- **Call stone** → find the basket, check the gift count and nesting limit, save the current place and name-tags, fill the basket's tags, and walk its stones. Restore the saved pouch on return.
+- **Return stone** → restore the most recently saved place and name-tags; growl if there is no active basket call.
 
 If the cat leaps to a signpost that doesn't exist, the cat growls. If a purr stone comes without a prior sniff, the cat growls.
 

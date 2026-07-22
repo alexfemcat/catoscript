@@ -26,8 +26,11 @@ Each instruction stone is one of these shapes:
 - **Sniff stone** — has a yes/no question inside. Doer cat smells the answer, writes yes or no into its nose-memory.
 - **Purr stone** — has a signpost name. Doer cat checks nose-memory. If yes, jump. If no, walk past.
 - **Hiss stone** — has a signpost name. Same as purr, but flip the answer.
-- **Jump stone** — has a signpost name. Doer cat always jumps, no question asked.
-- **Label stone** — has a signpost name. Doer cat ignores it. It's only there for the parser cat's signpost map.
+- **Jump stone** — has a signpost name and may carry gift stones. Doer cat always jumps, no question asked; jumping to a basket is forbidden.
+- **Basket stone** — has a name, a row of empty name-tags, and its own stack of instruction stones. The doer cat walks past the stored basket until it is called.
+- **Call stone** — has a basket name and gift stones. Doer cat saves its place and name-tags, fills the basket's tags, and walks the basket.
+- **Return stone** — ends the current basket walk and restores the saved place and name-tags.
+- **Label stone** — has a signpost name and may carry empty name-tags. Doer cat ignores it. It's there for the signpost book.
 - **Thought stone** — has some words. Doer cat ignores it.
 - **Blank stone** — has nothing. Doer cat ignores it.
 
@@ -71,6 +74,9 @@ That's it. No decimals. No lists. No nulls. No baskets of stuff. Those come late
 |   - PurrAt           |
 |   - HissAt           |
 |   - Jump             |
+|   - Basket           |
+|   - Call             |
+|   - Return           |
 |   - Label            |
 |   - Comment          |
 |   - Empty            |

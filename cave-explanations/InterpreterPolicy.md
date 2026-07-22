@@ -12,17 +12,19 @@ The cat needs a **tiredness setting**. After a certain number of stones, the cat
 
 ---
 
-## The Three Knobs
+## The Four Knobs
 
-Three knobs on the tiredness setting:
+Four knobs on the tiredness setting:
 
 1. **Max stones per nap** — how many stones the cat picks up before pausing for a breath. In the game, this is the per-frame budget (the interpreter loop is also a cooperative scheduler). In the CLI, there's no frame, so this knob is just sitting there for future use.
 
 2. **Max stones total** — how many stones the cat will pick up across the *whole* script run, no matter what. Hit this and the cat stops, period.
 
-3. **Seed** — a number for when the script needs randomness later. Nothing reads this knob yet. It's just sitting there so the shape is in place.
+3. **Max basket depth** — how many baskets may be nested inside baskets. If calls keep nesting past this mark, the cat growls instead of filling the cave with an endless tower of baskets.
 
-That's the whole policy. Three knobs.
+4. **Seed** — a number for when the script needs randomness later. Nothing reads this knob yet. It's just sitting there so the shape is in place.
+
+That's the whole policy. Four knobs.
 
 ---
 
@@ -71,7 +73,8 @@ This is different from a real error (unknown label, type mismatch), which is a g
    +-----------------------+
    |  maxStepsPerTick: 100 |  <-- per-nap budget
    |  maxTotalSteps: 1e6   |  <-- total budget
-   |  seed: null           |  <-- for later
+   |  max basket depth: 64 |  <-- nested-basket guard
+   |  seed: empty          |  <-- for later
    +-----------------------+
 ```
 
@@ -94,14 +97,15 @@ Same script, but policy says `maxTotalSteps = 10`. Cat comes home after 10 stone
 
 ---
 
-## Why Three Knobs and Not One
+## Why Four Knobs and Not One
 
-- **`maxTotalSteps`** is the hard ceiling. Always on. Always there.
-- **`maxStepsPerTick`** is for hosts that care about frames (like games). The CLI doesn't care. Keeping it as a knob means the same interpreter can serve both.
-- **`seed`** is a placeholder. It's there so that when randomness lands, the policy already has the right shape — no retrofitting.
+- **Total-stone ceiling** is the hard ceiling. Always on. Always there.
+- **Per-nap ceiling** is for leash-holders that care about frames, like games. The terminal does not care. Keeping it as a knob means the same doer cat can serve both.
+- **Basket-depth ceiling** prevents endless nesting even when the total-stone ceiling is large.
+- **Seed** is a placeholder. It's there so that when randomness lands, the tiredness setting already has the right shape.
 
 ---
 
 ## One Line
 
-Three knobs: per-nap budget, total budget, and a seed for later. The cat gets tired and stops before it runs forever.
+Four knobs: per-nap budget, total budget, basket depth, and a seed for later. The cat gets tired or growls before a runaway walk fills the cave.

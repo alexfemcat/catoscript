@@ -40,7 +40,7 @@ That's it. One slot. Last yes/no wins.
 
 ## Why Two Kinds of Memory
 
-The name-tag pile is **long-lived**. Tags stay until something replaces them. The script can come back to a tag a thousand stones later and the thing is still tied there.
+The name-tag pile is **long-lived during an ordinary walk**. Tags stay until something replaces them. When the cat enters a basket, it saves a copy of the caller's pile, fills the basket's parameter tags, and restores the saved pile when the basket returns.
 
 The nose-memory is **one-shot**. It's the bridge between a sniff and the next purr or hiss. After the purr/hiss uses it, the memory is "stale" — but the script is supposed to sniff again before the next purr/hiss, so it doesn't matter.
 
