@@ -23,10 +23,9 @@ class RealParserTest {
         assertEquals(Stmt.Empty, program.stmts[0])
     }
     @Test
-    fun `comment line parses to Comment`() {
+    fun `comment line parses to Empty`() {
         val program = Parser.parse("# a note")
-        val stmt = assertIs<Stmt.Comment>(program.stmts[0])
-        assertEquals("a note", stmt.text)
+        assertEquals(Stmt.Empty, program.stmts[0])
     }
     @Test
     fun `label parses to Label without colon`() {
