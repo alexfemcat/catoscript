@@ -106,11 +106,43 @@ CatoScript-Standalone/
 ├── samples/                          # .cato files; golden scripts organized by tier
 ├── editor/                           # VS Code TextMate grammar (.vsix)
 ├── catoDE/                           # standalone Compose Desktop IDE (devplan Phase 1)
+├── catoscript-libs/                  # sibling Gradle subprojects — host concerns, dense Kotlin
+│   └── catoscript-web/               # HTTP host + std.web.* (its own docs/devplan.md)
 └── tools/
     └── repl/                         # CLI REPL app (devplan §6 Phase F); stdlib host
 ```
 
 > **The in-repo source under `cato-kotlin/` in `KernelPanic-Kotlin-Port` is the candidate set to move here.** When Phase B of the devplan lands, source files rename `package com.kp.cato.*` → `package com.catoscript.*` in a single commit. Until that commit lands, do not preemptively rename — drift between the two namespaces costs more than the interim awkwardness. (`catoscript-devplan.md` §4.)
+
+### 3b. Sibling modules (the `catoscript-libs/` convention)
+
+> **One Gradle subproject per concern. One `docs/devplan.md` per subproject. The root devplan stays scoped to core.**
+
+A "concern" here is anything that does work the language shouldn't do: HTTP, databases, GUIs, filesystems that aren't stdlib-shaped, native interop, etc. Each lives under `catoscript-libs/` as its own Gradle subproject with its own `catoscript-<name>.version` line in `gradle.properties`.
+
+| Convention | What it means |
+|---|---|
+| **Path layout** | `catoscript-libs/catoscript-<name>/{src,docs}/` — mirrors the root's `src/` and `docs/` shape |
+| **Gradle path** | `:catoscript-libs:catoscript-<name>` (e.g. `:catoscript-libs:catoscript-web`) — declared in root `settings.gradle.kts` |
+| **Kotlin package** | `com.catoscript.<name>.*` — never `com.catoscript.*` (that's core's namespace) |
+| **Version** | `catoscript-<name>.version=0.1.0-LOCAL` in root `gradle.properties` — independent of `catoscript.version` |
+| **Own devplan** | `catoscript-libs/catoscript-<name>/docs/devplan.md` — the root `catoscript-devplan.md` is **not** edited for module-level work |
+| **Own release** | Publishes to `mavenLocal` on its own. Other consumers (KP, catoDE, future `catoscript-<x>` modules) depend on it via `implementation("com.catoscript:catoscript-<name>:<version>")` after a publish |
+| **Escape hatch** | If a module ever gets an audience, `git mv catoscript-libs/catoscript-<name>/ ../catoscript-<name>/` plus a `settings.gradle.kts` edit moves it to its own repo. Mechanical, not a redesign |
+
+**The philosophy boundary.** The root project (`com.catoscript.*`) enforces `catoscript-devplan.md` §5/§10/§11/§13 — closed grammar, read-out-loud surface, Boring Kotlin, the four-check process. Sibling modules **do not**. Their catoscript-facing surface (the `std.<name>.*` namespace) must clear §11 (read-out-loud), but the Kotlin code inside the module can be dense, idiomatic, and feature-creep-friendly. The catoscript side stays readable; the lib side is allowed to be clever.
+
+**The dep direction.** Always `catoscript-libs:catoscript-<x> -> :core`, never the other way. Core stays free of HTTP, JDBC, Compose, or any module-shaped dep. A module that needs to share types with another module either lifts the type into core or both depend on a shared `catoscript-libs:catoscript-<common>` subproject. No cycles.
+
+**Why not separate repos.** Solo-dev tax is real: every new repo is a new CI, a new README, a new `publishToMavenLocal` step in the dev loop. Cross-cutting changes (rename in core → update all consumers) become publish-then-test-iterate instead of one Gradle invocation. The escape hatch (move a module to its own repo) is a `git mv` away whenever the audience warrants the operational overhead. Until then, one repo with module boundaries keeps the dev loop fast.
+
+**Current sibling modules:**
+
+| Module | Status | Own devplan |
+|---|---|---|
+| `:catoscript-libs:catoscript-web` | empty scaffold, publishes `0.1.0-LOCAL` | `catoscript-libs/catoscript-web/docs/devplan.md` |
+
+Future candidates: `catoscript-db` (sqlite, `std.db.*`), `catoscript-gui` (Compose desktop shell, `std.ui.*`), `catoscript-net` (TCP, `std.net.*`). Each gets its own subproject only when a real player script needs it, not before. The root devplan does not list them until they ship a Phase A.
 
 ---
 
@@ -133,6 +165,7 @@ This repo's design lives in `catoscript-devplan.md`. Specifically:
 | Implementation discipline (the four-item gap list) | §13 (Implementation discipline) |
 | The capability surface (`std.time`, `std.fs`, `std.test`, `std.json`) | §14 (Capability surface) |
 | What catoscript actually does today (every shipped command, AST shape, error message, host method) | `catoscript-reference.md` |
+| Sibling module design (web, db, gui, …) | `<module>/docs/devplan.md` per module — the root devplan is **not** the source of truth for module-level work (see §3b) |
 
 If any other document in this repo contradicts `catoscript-devplan.md`, the devplan wins for design intent; `catoscript-reference.md` wins for runtime behavior. When the two disagree on what currently runs, the reference wins; when they disagree on what should be added, the devplan wins.
 

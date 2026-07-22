@@ -2,6 +2,8 @@
 
 > The catoscript language is leaving the building. Today its engine lives inside `:cato-kotlin` in `KernelPanic-Kotlin-Port`. The plan is to extract it into a standalone Kotlin/JVM library, `catoscript`, published to `mavenLocal()` during the port and consumed by Kernel Panic like any other dependency. This document is the source of truth for that work. Cross-referenced from `AGENTS.md` §2 and §8b.
 
+**Scope: this devplan covers the core catoscript library and language only.** Sibling modules under `catoscript-libs/` (e.g. `:catoscript-libs:catoscript-web`) have their own `docs/devplan.md` for module-level design and roadmap. The convention is documented in `AGENTS.md` §3b.
+
 **Naming (locked in):** `catoscript` is one word, camelcase. Not `cato-script`, not `KatoScript`, not `CATOScript`. The package root is `com.catoscript`. The in-repo module `:cato-kotlin` keeps the interim namespace `com.kp.cato.*` until the standalone repo's first commit renames packages in one sweep.
 
 ---
