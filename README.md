@@ -222,6 +222,24 @@ For hacking on catoscript itself, the launcher at the repo root (`cato.bat` on W
 
 The execution path today is `cato run <file>` (or `cato <file>`). `cato compile <file>` parses the script, runs the B.3 analyzer (undefined variables anywhere, basket and label resolution, arity check, reserved-keyword check), and writes `<file>.cato.json` next to the source on success, or prints all analyzer diagnostics on failure. The repo-root `cato.bat` accepts both modes; the repo-root `cato.sh` is a single-file run launcher. You can also use `./gradlew :run --args="compile <file>"`, the fat jar, or a generated distribution launcher.
 
+### 2.4 Syntax coloring in VS Code (optional)
+
+A VS Code extension ships in [`editor/`](./editor). A prebuilt `.vsix` is checked in, so a one-liner installs it without any build step:
+
+```bash
+code --install-extension editor/catoscript-0.3.2.vsix
+```
+
+Restart VS Code and open any `.cato` file — the grammar lights up: keywords by category, strings yellow, variables red, labels bright red, comments slate italic. To rebuild after a grammar change:
+
+```bash
+cd editor
+npx --yes @vscode/vsce package
+code --install-extension catoscript-*.vsix
+```
+
+Keyword list and color palette are documented in [`editor/README.md`](./editor/README.md).
+
 ---
 
 ## 3. The philosophy, in three lines

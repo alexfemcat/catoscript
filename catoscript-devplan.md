@@ -18,7 +18,7 @@
 | E       | Real parser + AST (folded into B.5)                                                                   | ✅ mechanism shipped; ⏳ `0.4.0-LOCAL` bump parked on KP click-to-line                  | (next bump)           | `44cbdb4`    |
 | F       | Standalone CLI REPL                                                                                   | ⏸️ deferred — `cato` / `cato.bat` launchers shipped; `tools/repl/` + `ReplHost` parked indefinitely (no user need; `cato run X.cato` covers scripting) | `0.3.2-LOCAL`         | `6c3ecf4`    |
 | G       | Analyzer + `cato compile` + stepper                                                                   | ✅ shipped (analyzer + `.cato.json` sidecar); stepper + fmt deferred indefinitely         | `1.0-LOCAL`           | `6fd9a5d`    |
-| └ B.7   | AST emit (`.cato.json`)                                                                               | 🚧 MW1–MW3 shipped; MW4 CLI sidecar + MW5 tests pending                                | —                     | `a3a5b41`    |
+| └ B.7   | AST emit (`.cato.json`)                                                                               | ✅ shipped                                                                             | —                     | `073d907`    |
 | └ B.8   | `basket` / `end_basket` / `return` / `name(args)`                                                     | ✅ shipped *(docs sync partial — see last checkbox)*                                    | `0.3.2-LOCAL`         | `bc53620`    |
 | I       | Editor support                                                                                        | ✅ VS Code shipped; ⏳ IntelliJ deferred                                                | —                     | `ac07563`    |
 | H       | Real publishing (Maven Central / GitHub Packages)                                                     | ⏳ blocked on API stability                                                            | (target `0.6.0+`)     | —            |
@@ -409,7 +409,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Bumped to `1.0-LOCAL`
 - [ ] (KP side) CatoDE editor calls the library analyzer; debug overlay (F2) uses the library stepper
 
-### Phase G sub-batches (the `cato compile` work) · B.1 ✅ `a5ca509`, B.2 ✅ `ee1d4b7`, B.3 ✅ `6fd9a5d`; B.7 MW4 (`.cato.json` sidecar) and MW5 (round-trip test) still pending — see Phase B.7 below
+### Phase G sub-batches (the `cato compile` work) · B.1 ✅ `a5ca509`, B.2 ✅ `ee1d4b7`, B.3 ✅ `6fd9a5d`; B.7 ✅ `073d907` / `958fda7` — see Phase B.7 below
 
 > Phase G shipped the analyzer + `.cato.json` sidecar and bumped to `1.0-LOCAL`; `cato fmt` and stepper were deferred indefinitely.
 
@@ -438,17 +438,17 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Extend `analyzeStmt` to handle `Meow`, `Sniff`, `PurrAt`, `HissAt`, `Jump`, `Label`, `Basket`, `Return`, `Call`, `Comment`, `Empty` *(MW1)*
 - [x] Basket/Call resolution: every `Call(name, args)` must resolve to a `Basket(name, params)` with matching arity *(MW2)* — *gap: duplicate basket name is silently overwritten in `basketsMap`; not detected by parser or analyzer. Interpreter runtime also does not check, so the second basket wins. Follow-on if needed.*
 - [x] Label resolution: `PurrAt`/`HissAt`/naked-`Jump` targets must exist *(MW3)* — *gap: duplicate-label detection is deferred to runtime via `buildLabelMap`; the analyzer's pre-pass overwrites silently. Follow-on if needed.*
-- [ ] Phase G's full static-check portion closes when this lands; the top-level `cato compile` checkbox stays open until B.7 MW4 also writes the `.cato.json` sidecar *(MW4)*
+- [x] Phase G's full static-check portion closes when this lands; the top-level `cato compile` checkbox stays open until B.7 MW4 also writes the `.cato.json` sidecar *(MW4 — landed `958fda7`; sidecar now writes on the success path)*
 - [x] Phase G bumped to `1.0-LOCAL` after B.3 and B.7 MW4 closed the analyzer + sidecar path. `fmt` and stepper deferred indefinitely. *(MW5)*
 
-### Phase B.7 · AST emit (parked for the lesson after B.6) · 🚧 partial — MW1 (`plugin.serialization`) ✅, MW2 (sealed-class annotations across six files) ✅, MW3 (`fun emit(program): String`) ✅ `a3a5b41`; MW4 (CLI writes `.cato.json` sidecar) + MW5 (round-trip + shape tests) pending
+### Phase B.7 · AST emit · ✅ shipped (no version bump; MW1–MW3 `a3a5b41`; MW4 CLI sidecar `958fda7`; MW5 round-trip + shape tests `073d907`)
 
 - [x] Apply `kotlin("plugin.serialization") version "2.2.20"` to `build.gradle.kts` so the `@Serializable` translator is generated at compile time *(MW1)*
 - [x] Add `kotlinx.serialization` annotations to `Expr`, `Stmt`, `CompareOp`, `StrPart`, `SourcePos`, `Program` (no `Value` — runtime type, not AST) *(MW2, six files: SourcePos.kt, Expr.kt, Stmt.kt; sealed interfaces + every member stamped with `@Serializable` and members with `@SerialName` for JSON-side disambiguation)*
 - [x] Add `fun emit(program: Program): String` in `com.catoscript.parser` that JSON-serializes the AST with `prettyPrint = true` *(MW3; new file `AstEmit.kt`)*
-- [ ] Add `cato compile <file.cato>` CLI command in the runner that parses + emits a `.cato.json` next to the source *(MW4 — pending)*
-- [ ] Tests: `emit` round-trips through `parse`; emits known shape for sample scripts *(MW5 — pending; eyeball test landed as `AstEmitTest.``emit prints sample 3 cato JSON for eyeball``, asserts to be added when the shape is locked)*
-- [ ] No bump; ships ahead of Phase G as the foundation for the static-check command there
+- [x] Add `cato compile <file.cato>` CLI command in the runner that parses + emits a `.cato.json` next to the source *(MW4 — shipped `958fda7`: `RunScript.kt:76-79` writes the sidecar next to the source via `sidecar.writeText(emit(program))` on the success path)*
+- [x] Tests: `emit` round-trips through `parse`; emits known shape for sample scripts *(MW5 — shipped `073d907` via `AstEmitTest.kt`: round-trip via `Json.decodeFromString<Program>`, known-shape substring check (`"Meow"` + `"hello"` + leading `{`), and the original eyeball print for the human. The shape test is substring-level rather than an exact fixture — fine while the AST schema is still settling)*
+- [x] No bump; ships ahead of Phase G as the foundation for the static-check command there
 
 > Phase B.7 ships the AST-emit half of the user's "real compiler" idea. The static-check half ("refuse to emit if the analyzer finds errors") is Phase G's `cato compile` checkbox above; it cannot ship until `CatoScriptAnalyzer` lands. Sequencing matters: B.7 throws away no code — Phase G's analyzer pass slots in on top of the existing emit.
 
