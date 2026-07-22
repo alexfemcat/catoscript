@@ -3,9 +3,17 @@
 > The smallest language that can drive the terminal.
 > Small enough to read out loud. Powerful enough that you do not have to write a `strlen` from scratch.
 
-catoscript is a literacy first scripting language: every programming idea has a one sentence English shape in cat vocabulary. Concepts before keywords. Read it out loud, then run it.
+catoscript is a literacy first scripting language: every programming idea has a one sentence English shape in cat vocabulary. Concepts before keywords. Read it out loud, then run it. Yes, it's cat themed. Yes, it's a bit cringe. That's on purpose.
 
 If you have dabbled in Python or Scratch and want a language that does not get in the way, this is for you. If you have never written a line of code, the section below will hold your hand through the first script.
+
+---
+
+## How AI is used here
+
+> I am not against AI, but I am against AI slop and laziness passed off as "AI-assistance."
+
+**catoscript is built by a real human bean.** The language design, the architecture, and every line of Kotlin under `src/main/kotlin/com/catoscript/` is handrcafted and owned by a human. AI is used for documentation drafting, commit messages, mechanical edits (large renames, consistency checks, scaffolding). **Contributors READ THIS**: code you submit must be YOUR code that you can fully explain, can place inside catoscript's bigger picture, and conforms to the rules and philosophy of catoscript. Documentation may be AI-assisted; design decisions behind it MUST be yours. Pull requests that are simply AI-generated with the human acting as reviewer will be declined. See [AI_POLICY.md](./AI_POLICY.md).
 
 ---
 
@@ -35,7 +43,7 @@ catoscript 1.0 ships the language spine — five tiers of progressive literacy, 
 - `std.*` namespaces (`cli`, `ui`, `time`, `fs`, `test`, `json`, `web`, `random`, `path`, `list`, `str`) — Tiers 9–16, planned.
 - `let` (opt-in types) — Tier 8, planned.
 - Audio (`chirp`, `purr`, `hiss`, `vibrato`, `sample`), screen (`scurry`, `groom`), `sniff_env`, `scratch` / `bat` / `swat` — Phase C, planned.
-- `Stepper` / `:step` REPL / `cato fmt` — Phase G, parked (REPL indefinitely deferred).
+- `Stepper` and `cato fmt` — Phase G, parked.
 
 All of the above are documented in `catoscript-reference.md` §13 as explicit "planned, not shipped." A user who reaches for higher tiers in 1.0 gets a parser error, not a silent surprise.
 
@@ -165,8 +173,8 @@ Unzip it anywhere and add the `bin/` folder to your `PATH`. That's the whole ins
 **Windows (PowerShell or cmd):**
 
 ```powershell
-Expand-Archive .\catoscript-shadow-0.3.0-LOCAL.zip -DestinationPath C:\Tools\
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Tools\catoscript-shadow-0.3.0-LOCAL\bin", "User")
+Expand-Archive .\catoscript-shadow-1.0-LOCAL.zip -DestinationPath C:\Tools\
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Tools\catoscript-shadow-1.0-LOCAL\bin", "User")
 ```
 
 Close and reopen the terminal. From anywhere:
@@ -178,8 +186,8 @@ cato run hello.cato
 **Mac / Linux / git bash / WSL:**
 
 ```bash
-unzip catoscript-shadow-0.3.0-LOCAL.zip -d ~/.local/
-export PATH="$HOME/.local/catoscript-shadow-0.3.0-LOCAL/bin:$PATH"
+unzip catoscript-shadow-1.0-LOCAL.zip -d ~/.local/
+export PATH="$HOME/.local/catoscript-shadow-1.0-LOCAL/bin:$PATH"
 ```
 
 From anywhere:
@@ -190,14 +198,14 @@ cato run hello.cato
 
 Both `cato run <file>` and `cato <file>` work. The launcher discovers the fat jar next to itself; no classpath, no `~/.m2` lookup.
 
-The generated distribution launcher also accepts `cato compile <file>`. The current B.2 compile path parses the script, checks undefined variables in top-level `set` RHS expressions, and prints the serialized AST JSON to stdout on success or all analyzer diagnostics on failure. It does **not** create a `.cato.json` sidecar yet; that remains Phase B.7 MW4.
+The generated distribution launcher also accepts `cato compile <file>`. The current compile path parses the script, runs the full B.3 analyzer (undefined variables anywhere, basket and label resolution, arity check, reserved-keyword check), and writes `<file>.cato.json` next to the source on success, or prints all analyzer diagnostics on failure.
 
 ### 2.2 Just run a script (one jar, no install)
 
 If you have a fat jar and a JDK, that's enough:
 
 ```bash
-java -jar catoscript-0.3.0-LOCAL.jar hello.cato
+java -jar catoscript-1.0-LOCAL.jar hello.cato
 ```
 
 The jar bundles the parser, interpreter, CLI, Kotlin stdlib, and `kotlinx-serialization-json`. One file, no classpath. Use this when you don't want to put `cato` on `PATH` — for CI, for one-off scripts, for sandboxed environments.
@@ -212,18 +220,7 @@ For hacking on catoscript itself, the launcher at the repo root (`cato.bat` on W
 ./cato.sh samples/01_first_script/hello.cato       # Mac/Linux
 ```
 
-The CLI REPL at `./gradlew :tools:repl:run` lands later in Phase F (devplan §6). For now, `cato run <file>` is the execution path and the B.2 `cato compile <file>` core is available through `RunScript.kt`. The repo-root `cato.bat` accepts both modes; the repo-root `cato.sh` remains a single-file run launcher. You can also use `./gradlew run --args="compile <file>"`, the fat jar, or a generated distribution launcher for compile mode.
-
-The REPL reads:
-
-```
-catoscript> set $x 10
-catoscript> meow "x is $x"
-x is 10
-catoscript> :exit
-```
-
-`:tutorial` walks the tier ladder interactively. `:load <file>` runs a `.cato` script. `:step` single steps one instruction.
+The execution path today is `cato run <file>` (or `cato <file>`). `cato compile <file>` parses the script, runs the B.3 analyzer (undefined variables anywhere, basket and label resolution, arity check, reserved-keyword check), and writes `<file>.cato.json` next to the source on success, or prints all analyzer diagnostics on failure. The repo-root `cato.bat` accepts both modes; the repo-root `cato.sh` is a single-file run launcher. You can also use `./gradlew :run --args="compile <file>"`, the fat jar, or a generated distribution launcher.
 
 ---
 
@@ -454,21 +451,11 @@ The temptation: "catoscript should be a *real* language, so it should have..." f
 
 **The rule.** Add a feature only if it collapses something the player currently has to write. Never add a feature for parity with another language.
 
-### 6.3 The amendment process
-
-If someone proposes adding one of these later, the workflow is:
-
-1. Open a doc PR adding the feature to a "Proposed" subsection with a "why it clears the bar" argument.
-2. The proposal must name the **specific scripts that get shorter** because of the feature. "It would be cleaner" does not count. "This 30 line script becomes 5 lines" does.
-3. Two week waiting period. If nobody in that time posts a counter example showing the script can already be short without the feature, the proposal moves into §5.9. If somebody shows it can, the proposal dies.
-
-This is bureaucracy on purpose. Languages die from feature creep, not from missing features.
-
 ---
 
 ## 8. The host seam (`CatoHost`)
 
-Every command that needs to reach outside the script goes through one interface. The interpreter takes a host in its constructor. The library ships `NullHost` for tests and the CLI REPL. Kernel Panic ships `KernelPanicHost`. Future hosts pick.
+Every command that needs to reach outside the script goes through one interface. The interpreter takes a host in its constructor. The library ships `NullHost` for tests and `ConsoleHost` for the CLI. The game's host implementation lives in the game codebase. Future hosts pick.
 
 ```kotlin
 package com.catoscript.runtime
@@ -492,8 +479,6 @@ interface CatoHost {
     fun readFile(path: String): String?
     fun writeFile(path: String, content: String): Boolean
     fun fileExists(path: String): Boolean
-
-    fun fetchUrl(url: String): String?
 }
 
 object NullHost : CatoHost {
@@ -505,12 +490,11 @@ object NullHost : CatoHost {
 
 **Per host implementation policy:**
 
-| Host | terminal | audio | clock | env | CLI | FS | Network |
-|---|---|---|---|---|---|---|---|
-| `NullHost` (lib tests) | no op | no op | real | null | empty / EOF | null / false | null |
-| `ReplHost` (CLI REPL) | ANSI stdout | none | real | env vars | real | real disk | `java.net.http` |
-| `KernelPanicHost` (KP) | Compose text | audio engine | real | game state | no op | VFS | not available |
-| `WebHost` (playground, future) | canvas | WebAudio | `Date.now()` | URL params | none | virtual FS | browser `fetch()` |
+| Host | `print` | `printErr` | `exit` | `now()` | Notes |
+|---|---|---|---|---|---|
+| `NullHost` | silent | silent | silent | `System.currentTimeMillis()` | the default for tests; nothing is observable |
+| `ConsoleHost` | `println` | `System.err.println` | `kotlin.system.exitProcess(code)` | `System.currentTimeMillis()` | what `cato run` uses via `RunScript.kt` |
+| `RecordingHost` | appends to a list | n/a | n/a | n/a | test fixture in `InterpreterTest.kt` only |
 
 Every method is optional in the sense that the host picks what is meaningful. No host implements everything.
 
@@ -564,8 +548,8 @@ The parser and interpreter work that is actually worth doing. All behavior prese
 |---|---|
 | Real parser, typed AST, line/column positions | Better errors, LSP hover/jump, formatter, stepper. The line splitter today has bugs (nested quotes, escape sequences, `$var` interpolation re parsed at runtime). |
 | Configurable `InterpreterPolicy` (step budget, max total steps, seed) | Testability, deterministic replays, future sandboxing. |
-| Generic `env()` host call (replaces KP specific `sniff_env`) | Language portability — the host decides what env is. |
-| `Stepper` interface | LSP debug features, `:step` in REPL, KP debug overlay. |
+| Generic `env()` host call (replaces game-specific `sniff_env`) | Language portability — the host decides what env is. |
+| `Stepper` interface | Scaffolding exists (`ScriptContext`, `ThreadHandle`); pause/resume not wired up yet. Future debug tooling plugs in here. |
 
 That is the list. Four things. Each ships in its own commit. Each clears the bar. None are "more advanced." They are *correct*.
 
@@ -596,17 +580,17 @@ Pick the line where complexity earns its keep. Draw it. Do not cross it on a "wh
 
 ---
 
-## 11. The seam with Kernel Panic
+## 11. Leaving the game
 
-Kernel Panic grew catoscript. The language is leaving the building. The plan, in three lines:
+catoscript grew up inside a game. The language is leaving the game. The plan, in three lines:
 
 * catoscript becomes a standalone Kotlin/JVM library published to `mavenLocal()`.
-* Kernel Panic consumes it like any other dependency via `com.catoscript:catoscript:0.x.y-LOCAL`.
-* KP's `:cato-kotlin` module is deleted. The 67 command canned tools registry stays in KP (it is a terminal shell layer, not a language primitive). All Compose UI stays in KP.
+* The game consumes it like any other dependency via `com.catoscript:catoscript:0.x.y-LOCAL`.
+* The game's own scripting module is retired. The 67-command canned-tools registry stays in the game (it is a terminal shell layer, not a language primitive). All UI for the game stays in the game.
 
 The migration is phased (A through H), each phase one commit, each commit green. Details live in `catoscript-devplan.md` §6.
 
-The host seam is the boundary. `KernelPanicHost : CatoHost` lives in KP. `NullHost` lives in the lib. The CLI REPL's `ReplHost` lives in the lib. Future hosts (web, mobile, embedded) plug into the same seam.
+The host seam is the boundary. The game's `CatoHost` lives in the game codebase. `NullHost` and `ConsoleHost` live in the lib. Future hosts (browser, mobile, embedded) plug into the same seam.
 
 ---
 
@@ -644,10 +628,9 @@ MIT. Anyone can use, modify, and redistribute catoscript for any purpose; the co
 
 ## 15. Where to read more
 
-* `AGENTS.md` — the language first project doc, no Kernel Panic context, daily driver.
-* `catoscript-devplan.md` — the source of truth for what catoscript is and is not. §5 improvements, §10 out of scope, §11 pedagogical positioning, §12 CLI + UI stdlib, §13 implementation discipline, §14 capability surface (Tier 12 to 16 stdlib, including `std.web.fetch`, and the bracket family). If any other document contradicts the devplan, the devplan wins.
+* `AGENTS.md` — repo-wide rules, coding style, what the four documents are.
+* `catoscript-devplan.md` — the source of truth for what catoscript is and is not. §5 improvements, §10 out of scope, §11 pedagogical positioning, §12 CLI + UI stdlib, §13 implementation discipline, §14 capability surface (Tier 12 to 16 stdlib and the bracket family). If any other document contradicts the devplan, the devplan wins.
 * `samples/` — golden scripts organized by tier.
-* `tools/repl/` — the CLI REPL app.
 
 The standing rule:
 

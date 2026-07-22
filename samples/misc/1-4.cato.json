@@ -1,0 +1,80 @@
+{
+    "stmts": [
+        {
+            "type": "Meow",
+            "expr": {
+                "type": "Str",
+                "parts": [
+                    {
+                        "type": "Literal",
+                        "text": "before"
+                    }
+                ],
+                "pos": {
+                    "line": 1,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 1,
+                "column": 1
+            }
+        },
+        {
+            "type": "Jump",
+            "label": "SKIP",
+            "pos": {
+                "line": 2,
+                "column": 1
+            }
+        },
+        {
+            "type": "Meow",
+            "expr": {
+                "type": "Str",
+                "parts": [
+                    {
+                        "type": "Literal",
+                        "text": "never prints"
+                    }
+                ],
+                "pos": {
+                    "line": 3,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 3,
+                "column": 1
+            }
+        },
+        {
+            "type": "Label",
+            "name": "SKIP",
+            "pos": {
+                "line": 4,
+                "column": 1
+            }
+        },
+        {
+            "type": "Meow",
+            "expr": {
+                "type": "Str",
+                "parts": [
+                    {
+                        "type": "Literal",
+                        "text": "after"
+                    }
+                ],
+                "pos": {
+                    "line": 5,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 5,
+                "column": 1
+            }
+        }
+    ]
+}
