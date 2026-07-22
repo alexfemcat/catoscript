@@ -1,7 +1,5 @@
 package com.catoscript.runtime
 
-import com.sun.net.httpserver.Request
-
 /**
  * Web host SPI extension. Hosts that handle HTTP requests implement this
  * on top of [CatoHost]. The web module ships the reference implementation.
@@ -12,10 +10,9 @@ import com.sun.net.httpserver.Request
  *  - currentRequest() exposes the in-flight request to the basket
  *  - respond() sends the basket's output back as the HTTP response
  */
-
-interface Webhost : CatoHost {
+interface WebHost : CatoHost {
     fun registerRoute(method: String, path: String, basketName: String)
-    fun server(port: Int)
+    fun serve(port: Int)
     fun currentRequest(): Request
     fun respond(status: Int, body: String)
 }
