@@ -57,7 +57,7 @@ object Parser {
         while (i < lines.size) {
             val line = lines[i]
             val lineNumber = i + 1
-            val trimmed = line.trim()
+            val trimmed = stripTrailingComment(line).trim()
             if (trimmed.startsWith("basket ") || trimmed == "basket") {
                 val (basket, consumed) = parseBasketBlock(trimmed, lineNumber, lines, i, basePath, inProgress)
                 stmts.add(basket)
@@ -70,9 +70,22 @@ object Parser {
         return Program(stmts)
     }
 
+    private fun stripTrailingComment(line: String): String {
+        var inString = false
+        for (i in 0 until line.length) {
+            val c = line[i]
+            if (c == '"') {
+                inString = !inString
+            } else if (c == '#' && !inString) {
+                return line.substring(0, i).trimEnd()
+            }
+        }
+        return line
+    }
+
     private fun parseLine(line: String, lineNumber: Int, basePath: String?, inProgress: Set<String>): List<Stmt> {
         val pos = SourcePos(lineNumber, 1)
-        val trimmed = line.trim()
+        val trimmed = stripTrailingComment(line).trim()
         if (trimmed.isEmpty()) return listOf(Stmt.Empty)
         return when {
             trimmed.startsWith("#") -> listOf(Stmt.Comment(trimmed.substring(1).trim(), pos))
