@@ -17,13 +17,13 @@
 | D       | KP consumes the library                                                                               | ⏳ pending — KP-side work, external to this repo                                        | —                     | —            |
 | E       | Real parser + AST (folded into B.5)                                                                   | ✅ mechanism shipped; ⏳ `0.4.0-LOCAL` bump parked on KP click-to-line                  | (next bump)           | `44cbdb4`    |
 | F       | Standalone CLI REPL                                                                                   | ⏸️ deferred — `cato` / `cato.bat` launchers shipped; `tools/repl/` + `ReplHost` parked indefinitely (no user need; `cato run X.cato` covers scripting) | `0.3.2-LOCAL`         | `6c3ecf4`    |
-| G       | Analyzer + `cato compile` + stepper                                                                   | 🚧 partial — B.1 / B.2 / B.3 shipped; stepper, fmt, `.cato.json` sidecar pending        | (next bump `0.6.0`)   | `6fd9a5d`    |
+| G       | Analyzer + `cato compile` + stepper                                                                   | ✅ shipped (analyzer + `.cato.json` sidecar); stepper + fmt deferred indefinitely         | `1.0-LOCAL`           | `6fd9a5d`    |
 | └ B.7   | AST emit (`.cato.json`)                                                                               | 🚧 MW1–MW3 shipped; MW4 CLI sidecar + MW5 tests pending                                | —                     | `a3a5b41`    |
 | └ B.8   | `basket` / `end_basket` / `return` / `name(args)`                                                     | ✅ shipped *(docs sync partial — see last checkbox)*                                    | `0.3.2-LOCAL`         | `bc53620`    |
 | I       | Editor support                                                                                        | ✅ VS Code shipped; ⏳ IntelliJ deferred                                                | —                     | `ac07563`    |
 | H       | Real publishing (Maven Central / GitHub Packages)                                                     | ⏳ blocked on API stability                                                            | (target `0.6.0+`)     | —            |
 
-**Current shipped version:** `0.3.2-LOCAL` (B.8). The next bump is whichever lands first of: E's click-to-line (`0.4.0-LOCAL`) or G's full analyzer + sidecar (`0.6.0-LOCAL`). Phase F's REPL is parked indefinitely.
+**Current shipped version:** `1.0-LOCAL` (Phase G — analyzer + `.cato.json` sidecar). The next bump is E's click-to-line (`0.4.0-LOCAL`) when KP-side work lands, or H's Maven Central publish (`0.6.0+`). Phase F's REPL and Phase G's remaining fmt + stepper are parked indefinitely.
 
 **How to read this doc.** The table above is the at-a-glance view. Each phase section below retains its full checklist + prose for the work — scan the table for "what's open," then jump to that section for context. Phase headers carry the same status tag inline so the table and the body don't drift.
 
@@ -389,7 +389,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 
 > **Phase E actually landed as Phase B.5.** Commit `44cbdb4` ("Phase B.5: AST, recursive-descent parser, interpreter loop, host wiring") shipped the recursive-descent parser, the sealed `Expr`/`Stmt`/`CompareOp`/`StrPart` AST, `SourcePos` threaded through every node, and the interpreter loop that walks them — all the §5.1 / Phase E work. The phase-name drift ("B.5" vs "E") is documented because the devplan said E was after D, and D is KP-side work; running B.5 before D let the parser land without a downstream consumer. The Phase E bump to `0.4.0-LOCAL` is parked until the KP-side click-to-line work makes the error positions user-visible.
 
-### Phase F · Standalone CLI REPL ships · ⏸️ deferred indefinitely (`0.3.2-LOCAL` stays the latest bump until E or G ships) — `cato` / `cato.bat` launchers + `shadowDistZip` shipped (`6c3ecf4`); `tools/repl/` subproject + ANSI `ReplHost` parked
+### Phase F · Standalone CLI REPL ships · ⏸️ deferred indefinitely (`1.0-LOCAL` stays the latest bump until E ships) — `cato` / `cato.bat` launchers + `shadowDistZip` shipped (`6c3ecf4`); `tools/repl/` subproject + ANSI `ReplHost` parked
 
 - [ ] Create `tools/repl/` Gradle subproject (kotlin("jvm") application)  *(parked — no current need; `cato run X.cato` covers scripting)*
 - [ ] Implement `ReplHost : CatoHost` using ANSI escape codes for cursor/clear  *(parked)*
@@ -397,7 +397,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] README documents the 30-second quickstart *(README §2 has three paths: install via the zip, run via `java -jar`, and the dev launcher)*
 - [ ] Bump to `0.5.0-LOCAL`, publish  *(parked — no bump target tied to the REPL)*
 
-> **Phase F parked 2026-07-21.** The launchers and install distribution shipped in `6c3ecf4` because the fat jar was a prerequisite for any user-facing install path. The `tools/repl/` subproject and ANSI `ReplHost` were always downstream — they need Phase G's analyzer / formatter / stepper to land first for `:tutorial` and `:step` to be meaningful. The REPL is now **deferred indefinitely**: `cato run X.cato` already covers the scripting workflow, and nobody has surfaced a real use case that requires an interactive loop. If a need appears (debugger, tutorial walker, ad-hoc snippet tester), the §10 amendment process applies — open a doc PR with the concrete script it would shorten, two-week wait, decide. **Until then, the `0.5.0-LOCAL` bump is unassigned; next bump is whichever of E (`0.4.0-LOCAL`) or G (`0.6.0-LOCAL`) ships first.**
+> **Phase F parked 2026-07-21.** The launchers and install distribution shipped in `6c3ecf4` because the fat jar was a prerequisite for any user-facing install path. The `tools/repl/` subproject and ANSI `ReplHost` were always downstream — they need Phase G's analyzer / formatter / stepper to land first for `:tutorial` and `:step` to be meaningful. The REPL is now **deferred indefinitely**: `cato run X.cato` already covers the scripting workflow, and nobody has surfaced a real use case that requires an interactive loop. If a need appears (debugger, tutorial walker, ad-hoc snippet tester), the §10 amendment process applies — open a doc PR with the concrete script it would shorten, two-week wait, decide. **Until then, the `0.5.0-LOCAL` bump is unassigned; the `1.0-LOCAL` bump is the latest until E (`0.4.0-LOCAL`) ships.**
 
 ### Phase G · Move the analyzer + formatter + stepper · 🚧 partial — `cato compile` core shipped across B.1/B.2/B.3 (`a5ca509` → `6fd9a5d`); analyzer move + stepper + `:step` + `cato fmt` + KP F2 overlay pending
 
@@ -406,12 +406,12 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [ ] Add `Stepper` interface to `com.catoscript.interpreter`
 - [ ] Implement `Stepper` in tests; expose `:step` in REPL
 - [ ] Add `cato compile <file.cato>` CLI command: parses the script, runs the analyzer, emits a serialized AST (`.cato.json` via `kotlinx.serialization`) or fails with diagnostics. Builds on the AST-emit primitive (see Phase B.7 below) and `CatoScriptAnalyzer`. The "refuse to emit if errors" behavior comes free from the analyzer; the compile command is the wiring.
-- [ ] Bump to `0.6.0-LOCAL`, publish
+- [x] Bumped to `1.0-LOCAL`
 - [ ] (KP side) CatoDE editor calls the library analyzer; debug overlay (F2) uses the library stepper
 
 ### Phase G sub-batches (the `cato compile` work) · B.1 ✅ `a5ca509`, B.2 ✅ `ee1d4b7`, B.3 ✅ `6fd9a5d`; B.7 MW4 (`.cato.json` sidecar) and MW5 (round-trip test) still pending — see Phase B.7 below
 
-> Phase G's static-check core for `cato compile <file.cato>` ships across B.1–B.3. B.2 currently emits successful JSON to stdout; writing `.cato.json` next to the source remains the separate B.7 MW4 checkbox. No version bump at any sub-batch — Phase G bumps to `0.6.0-LOCAL` only after the full analyzer and CLI sidecar work are both complete.
+> Phase G shipped the analyzer + `.cato.json` sidecar and bumped to `1.0-LOCAL`; `cato fmt` and stepper were deferred indefinitely.
 
 #### Phase B.1 · compile plumbing — shipped in `a5ca509`
 
@@ -439,7 +439,7 @@ Each step is a commit. Each commit ships green. Each commit has a checkbox here 
 - [x] Basket/Call resolution: every `Call(name, args)` must resolve to a `Basket(name, params)` with matching arity *(MW2)* — *gap: duplicate basket name is silently overwritten in `basketsMap`; not detected by parser or analyzer. Interpreter runtime also does not check, so the second basket wins. Follow-on if needed.*
 - [x] Label resolution: `PurrAt`/`HissAt`/naked-`Jump` targets must exist *(MW3)* — *gap: duplicate-label detection is deferred to runtime via `buildLabelMap`; the analyzer's pre-pass overwrites silently. Follow-on if needed.*
 - [ ] Phase G's full static-check portion closes when this lands; the top-level `cato compile` checkbox stays open until B.7 MW4 also writes the `.cato.json` sidecar *(MW4)*
-- [ ] Phase G bumps to `0.6.0-LOCAL` after B.3 and B.7 MW4 complete the analyzer + sidecar compile path *(MW5)*
+- [x] Phase G bumped to `1.0-LOCAL` after B.3 and B.7 MW4 closed the analyzer + sidecar path. `fmt` and stepper deferred indefinitely. *(MW5)*
 
 ### Phase B.7 · AST emit (parked for the lesson after B.6) · 🚧 partial — MW1 (`plugin.serialization`) ✅, MW2 (sealed-class annotations across six files) ✅, MW3 (`fun emit(program): String`) ✅ `a3a5b41`; MW4 (CLI writes `.cato.json` sidecar) + MW5 (round-trip + shape tests) pending
 

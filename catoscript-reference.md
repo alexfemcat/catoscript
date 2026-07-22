@@ -1009,10 +1009,10 @@ For AI assistants tempted to generate code with these features:
 | `0.2.0-LOCAL` | Phase B | lexer/parser/script-context moved |
 | `0.3.0-LOCAL` | Phase B.5 + Phase C partial | real parser, AST, interpreter loop, `CatoHost`, `meow` routing. Audio/screen/env not yet routed. |
 | `0.3.1-LOCAL` | Phase B.6 | shipped · label parameters + call stack + `jump :end` return opcode + `maxCallDepth=64` (6 new tests in `LabelParamsInterpreterTest.kt`) |
-| `0.3.2-LOCAL` | Phase B.8 | parked — bumps when the basket / `return` / `name(args)` surface lands. **Breaking change to the call form** — any script using `jump :NAME args` or `jump :end` rewrites; naked `jump :NAME` gotos keep working unchanged. Underlying mechanism (call stack, `maxCallDepth`, caller-variable restore) is the B.6 plumbing. |
+| `0.3.2-LOCAL` | Phase B.8 | shipped · basket / `return` / `name(args)` surface landed. **Breaking change to the call form** — any script using `jump :NAME args` or `jump :end` rewrites; naked `jump :NAME` gotos keep working unchanged. Underlying mechanism (call stack, `maxCallDepth`, caller-variable restore) is the B.6 plumbing. |
 | `0.4.0-LOCAL` | Phase E | parked — bumps when KP-side click-to-line work makes error positions user-visible |
 | `0.5.0-LOCAL` | Phase F | parked — bumps when CLI REPL ships |
-| `0.6.0-LOCAL` | Phase G | parked — bumps when analyzer/formatter/stepper land |
+| `1.0-LOCAL` | Phase G | shipped · `cato compile <file>` (analyzer + `.cato.json` sidecar). `cato fmt` and stepper deferred indefinitely |
 
 Until `0.4.0-LOCAL` ships, do not generate code that relies on column-precise error positions.
 
