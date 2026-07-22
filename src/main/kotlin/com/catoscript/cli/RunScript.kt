@@ -38,11 +38,12 @@ fun main(args: Array<String>) {
         exitProcess(2)
     }
     val path = scriptArgs[0]
-    val source = File(path).readText()
-    val program = Parser.parse(source, File(path).absolutePath)
+    val sourceFile = File(path)
+    val source = sourceFile.readText()
+    val program = Parser.parse(source, sourceFile.absolutePath)
     val host = ConsoleHost()
     val result: InterpreterResult = if (mode == "compile") {
-        compileScript(program)
+        compileScript(program, sourceFile)
     } else {
         Interpreter(host).run(program)
     }
@@ -59,7 +60,7 @@ fun main(args: Array<String>) {
     }
 }
 
-fun compileScript(program: com.catoscript.ast.Program): InterpreterResult {
+fun compileScript(program: com.catoscript.ast.Program, sourceFile: File): InterpreterResult {
     println("Compiling and analyzing...")
     val analyzerResult = com.catoscript.analyzer.CatoScriptAnalyzer().analyze(program)
     if (analyzerResult.hasErrors()) {
@@ -73,7 +74,8 @@ fun compileScript(program: com.catoscript.ast.Program): InterpreterResult {
         return InterpreterResult.RuntimeError(summary, 0)
     }
     val jsonString = emit(program)
-    println("Successfully compiled. AST:")
-    println(jsonString)
+    val sidecar =  File(sourceFile.parentFile, sourceFile.name + ".json")
+    sidecar.writeText(jsonString)
+    System.err.println("Successfully compiled. AST written to ${sidecar.path}")
     return InterpreterResult.Completed
 }

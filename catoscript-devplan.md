@@ -653,9 +653,9 @@ If someone proposes a new feature later, the workflow is:
 
 1. Open a doc PR adding the feature to a "Proposed" subsection of this section, with a "why it clears the bar" argument.
 2. The proposal must name the **specific scripts that get shorter** because of the feature. "It would be cleaner" doesn't count; "this 30-line script becomes 5 lines" does.
-3. Two-week waiting period. If nobody in that time posts a counter-example showing the script can already be short without the feature, the proposal moves to §5.9. If somebody shows it can, the proposal dies.
+3. **Cool-off period.** A proposal lands only after a sleeping-on-it window — at least one night, longer for larger features. Before merging, take one honest pass at the counter-case: *can this script already be short without the feature?* If you can construct that script, the proposal dies. If you can't, and you still want it after the cool-off, the proposal moves to §5.9. The mechanic scales: when other eyes exist, the counter-case check broadens to them.
 
-This is bureaucracy on purpose. Languages die from feature creep, not from missing features.
+The cool-off is the guardrail — languages die from feature creep, not from missing features.
 
 ---
 

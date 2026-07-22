@@ -1,0 +1,89 @@
+{
+    "stmts": [
+        {
+            "type": "Meow",
+            "expr": {
+                "type": "Str",
+                "parts": [
+                    {
+                        "type": "Literal",
+                        "text": "hello"
+                    }
+                ],
+                "pos": {
+                    "line": 1,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 1,
+                "column": 1
+            }
+        },
+        {
+            "type": "Meow",
+            "expr": {
+                "type": "Str",
+                "parts": [
+                    {
+                        "type": "Literal",
+                        "text": "world"
+                    }
+                ],
+                "pos": {
+                    "line": 2,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 2,
+                "column": 1
+            }
+        },
+        {
+            "type": "com.catoscript.ast.Stmt.Empty"
+        },
+        {
+            "type": "com.catoscript.ast.Stmt.Empty"
+        },
+        {
+            "type": "Set",
+            "varName": "name",
+            "expr": {
+                "type": "Str",
+                "parts": [
+                    {
+                        "type": "Literal",
+                        "text": "deez"
+                    }
+                ],
+                "pos": {
+                    "line": 5,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 5,
+                "column": 1
+            }
+        },
+        {
+            "type": "com.catoscript.ast.Stmt.Empty"
+        },
+        {
+            "type": "Meow",
+            "expr": {
+                "type": "VarRef",
+                "name": "name",
+                "pos": {
+                    "line": 7,
+                    "column": 1
+                }
+            },
+            "pos": {
+                "line": 7,
+                "column": 1
+            }
+        }
+    ]
+}

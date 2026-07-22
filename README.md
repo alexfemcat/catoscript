@@ -9,6 +9,40 @@ If you have dabbled in Python or Scratch and want a language that does not get i
 
 ---
 
+## What's in 1.0
+
+catoscript 1.0 ships the language spine — five tiers of progressive literacy, plus a static analyzer and a JSON sidecar.
+
+**Tiers 1–5 (shipped today):**
+
+| Tier | What | The shape |
+|---|---|---|
+| 1 | Print | `meow "..."` |
+| 2 | Variables + interpolation | `set $name "..."` |
+| 3 | Decisions | `sniff ... purr_at ... hiss_at ...` |
+| 4 | Loops via labels | `:LOOP ... jump :LOOP` |
+| 5 | Baskets (functions) | `basket greet $name ... end_basket` |
+
+**`cato compile <file>` ships too:**
+
+- Catches undefined variables anywhere — `meow`, `sniff`, basket bodies, call arguments.
+- Resolves labels and baskets, rejects arity mismatch, rejects reserved-keyword basket names.
+- Writes `<file>.cato.json` next to the source on success — the AST in JSON, the input downstream tools read.
+
+**What is not in 1.0, by design:**
+
+- `for ... in ...` / list literals (`[]`) / the bracket family (`[sort]`, `[over]`, `[first]`, etc.) — Tier 6, planned.
+- `std.*` namespaces (`cli`, `ui`, `time`, `fs`, `test`, `json`, `web`, `random`, `path`, `list`, `str`) — Tiers 9–16, planned.
+- `let` (opt-in types) — Tier 8, planned.
+- Audio (`chirp`, `purr`, `hiss`, `vibrato`, `sample`), screen (`scurry`, `groom`), `sniff_env`, `scratch` / `bat` / `swat` — Phase C, planned.
+- `Stepper` / `:step` REPL / `cato fmt` — Phase G, parked (REPL indefinitely deferred).
+
+All of the above are documented in `catoscript-reference.md` §13 as explicit "planned, not shipped." A user who reaches for higher tiers in 1.0 gets a parser error, not a silent surprise.
+
+The 1.0 commitment: five tiers, one analyzer, one sidecar format, one CLI. The grammar stays closed; new capabilities land in stdlib in 1.x, not in the language.
+
+---
+
 ## Quick install for contributors
 
 ```bash
