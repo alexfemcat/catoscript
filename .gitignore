@@ -5,7 +5,10 @@ LEARNING_STRATEGY.md
 
 # Personal planning notes — kept on disk, not in the repo.
 # Includes docs/intellij-plugin-plan.md and any future WIP files.
-docs/
+# Note: this only matches the top-level docs/ directory. Sibling modules
+# under catoscript-libs/*/ have their own docs/devplan.md that ARE tracked
+# (see AGENTS.md §3b for the sibling-module convention).
+/docs/
 
 # VS Code extension packages — build artifacts, regenerated via
 # 'npx @vscode/vsce package' from the editor/ folder.
